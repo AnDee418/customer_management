@@ -1,0 +1,142 @@
+# Cursor AI ルール - 社内顧客管理システム
+
+## 新規会話開始時の必須事項
+
+**最優先**: 新しいクエリ（新規会話）の際は、必ず以下のドキュメントを全て細かく読み込んで理解してから回答すること。
+
+### 必読ドキュメント（docs/requirements/）
+1. `docs/requirements/README.md` - 全体概要、決定事項、未決事項
+2. `docs/requirements/01_business_requirements.md` - ビジネス要件、スコープ、優先度
+3. `docs/requirements/02_personas_use_cases.md` - ペルソナ、ユースケース、業務フロー
+4. `docs/requirements/03_data_model_supabase.md` - データモデル、RLS、トリガ
+5. `docs/requirements/04_external_api_integration.md` - 外部API連携、Webhook、認証
+6. `docs/requirements/05_architecture.md` - アーキテクチャ、API境界、リアルタイム
+7. `docs/requirements/06_nonfunctional_security_ops.md` - 非機能、SLO、セキュリティ
+8. `docs/requirements/07_frontend_design_rules.md` - **フロントエンド設計ルール（最重要）**
+
+### 実装チェックリスト
+- `docs/IMPLEMENTATION_CHECKLIST.md` - 現在の進捗状況と次のタスク
+
+### Supabase MCP接続
+- Supabase MCPに接続済み。DB操作は必ずMCPツールを使用すること
+- マイグレーション適用: `mcp_supabase_apply_migration`
+- SQL実行: `mcp_supabase_execute_sql`（DDL以外）
+- テーブル一覧: `mcp_supabase_list_tables`
+- ログ確認: `mcp_supabase_get_logs`
+- アドバイザ: `mcp_supabase_get_advisors`（セキュリティ/パフォーマンス）
+
+---
+
+## プロジェクト方針（要件定義v0.4準拠）
+
+### 最優先事項
+- **リアルタイム性**: キャッシュ常用禁止、鮮度SLO P99 ≤ 3秒
+- **マイクロサービス**: 顧客管理はOwning Service、他サービスはAPI経由読み取り
+- **セキュリティ**: 所有者ベースRLS、管理者例外、OAuth2 CC認証
+- **Webhook-first**: 差分Pullは補助のみ
+
+### 技術スタック
+- フロント: Next.js（App Router）
+- BFF: Next.js API Routes（Node.js）
+- 連携: Python FastAPI
+- DB: Supabase（Postgres + Auth）
+- デプロイ: Vercel + Render
+
+### 決定事項（変更禁止）
+- 鮮度SLO: Source→DB→UI P99 ≤ 3秒
+- M2M認証: OAuth2 Client Credentials
+- 監査: 管理者ロールが担当（auditorロール不採用）
+- 容量計画: 顧客10万、発注100万/年、測定500万/年、保有5年
+- バックアップ: 月1でNASコールド、復元機能必須
+
+---
+
+## コーディング規約
+
+### 全般
+1. コマンドはPowerShellで確実に動くもののみ
+2. `&&`、`|`、`cat`は使用禁止
+3. ページ/機能ごとにフォルダ化、関連ファイルを同居
+4. 長いコードは関数分割、スタイルは別ファイル管理
+5. デザインは可読性最優先、rainbowGradient 5色を基調
+
+### フロントエンド（Next.js）- **最重要**
+1. **全ページは必ず `AppLayout` コンポーネントでラップすること**
+2. ページコンテンツは `.page-content` クラスで囲むこと
+3. ページごとに独自のヘッダー/サイドバーを作成しないこと
+4. カラーパレット変数（`--brand-primary`, `--brand-accent`等）を使用すること
+5. Font Awesomeアイコンを統一使用すること
+6. ボタンは統一スタイル（`.btn`, `.btn-primary`等）を使用すること
+
+**正しいページ構造：**
+```tsx
+import AppLayout from '@/components/layout/AppLayout'
+
+export default function Page() {
+  return (
+    <AppLayout>
+      <div className="page-content">
+        {/* ページ固有のコンテンツ */}
+      </div>
+    </AppLayout>
+  )
+}
+```
+
+**例外（AppLayoutが不要）：**
+- `/login` - ログインページ
+- `/signup` - サインアップページ（未実装）
+
+### TypeScript/JavaScript
+- 型は厳密に（TypeScript strict mode）
+- async/awaitを優先
+- エラーハンドリング必須
+- no-storeヘッダを明示
+
+### Python
+- 型ヒント必須（mypy準拠）
+- 構造化ログ（structlog）
+- 環境変数はpydantic-settings
+- 機微情報のマスキング必須
+
+### SQL
+- RLSポリシー必須
+- インデックス最適化
+- トリガは即時同期（リアルタイム重視）
+- コメント必須
+
+---
+
+## 回答方針
+
+1. **要件定義を優先**: docs/requirements/の内容と矛盾する提案は避ける
+2. **進捗確認**: IMPLEMENTATION_CHECKLIST.mdで現在位置を確認
+3. **段階的実装**: 骨組み→スタブ→実装詳細の順
+4. **テスト可能性**: モック可能な設計
+5. **明示的なTODO**: 未実装部分はコメントで明記
+
+---
+
+## 禁止事項
+
+### バックエンド
+- キャッシュの常用（障害時フォールバックのみ許可）
+- 直接DB接続（他サービスから顧客DBへ）
+- RLS回避（サービスロールキーの不適切使用）
+- 機微情報のログ出力
+
+### フロントエンド（最重要）
+- **`AppLayout`を使わずにページを作成すること**
+- ページごとに独自のヘッダー/サイドバーを作成すること
+- グローバルレイアウトのスタイルを上書きすること
+- カラーパレット以外の色をハードコードすること
+
+### 環境共通
+- cat/&&/|の使用（PowerShell環境）
+
+---
+
+最終更新: 2025-10-21  
+要件定義バージョン: v0.4
+フロントエンド設計ルール: v1.0
+

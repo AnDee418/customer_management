@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_screenshot",
+      "Read(//c/Users/owner/EARU-sistem/corporate-website/**)",
+      "Bash(Get-ChildItem \"C:\\Users\\owner\\EARU-sistem\\corporate-website\\src\\pages\\Schedules\")",
+      "Bash(test:*)",
+      "Bash(mkdir:*)",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__evaluate_script"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\Users\\owner\\EARU-sistem\\corporate-website"
+    ]
+  }
+}

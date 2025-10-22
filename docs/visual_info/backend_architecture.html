@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社内顧客管理システム - バックエンドアーキテクチャ解説</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 2em;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .intro-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .intro-box h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        /* アーキテクチャ図 */
+        .architecture-diagram {
+            background: #f8f9fa;
+            padding: 40px;
+            border-radius: 15px;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .layer {
+            margin-bottom: 40px;
+        }
+
+        .layer-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .components {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .component {
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 200px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .component:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+        }
+
+        .component-icon {
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .component-name {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 8px;
+            color: #667eea;
+        }
+
+        .component-desc {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        /* データフロー図 */
+        .flow-diagram {
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+
+        .flow-step {
+            background: white;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .flow-step::before {
+            content: attr(data-step);
+            position: absolute;
+            left: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .flow-step h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        /* セキュリティレイヤー */
+        .security-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .security-card {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .security-card h4 {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .security-icon {
+            font-size: 1.5em;
+        }
+
+        .security-card ul {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .security-card li {
+            padding: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .security-card li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        /* 機能比較表 */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .comparison-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+        }
+
+        .comparison-table td {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .badge-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        /* 統計カード */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        /* 注意書き */
+        .note {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .note-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        /* レスポンシブ */
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .components {
+                flex-direction: column;
+            }
+
+            .component {
+                min-width: 100%;
+            }
+        }
+
+        /* アニメーション */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section {
+            animation: fadeIn 0.6s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏢 社内顧客管理システム</h1>
+            <p>バックエンドアーキテクチャ解説</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">バージョン v0.10 | 2025-10-20</p>
+        </header>
+
+        <div class="content">
+            <!-- イントロダクション -->
+            <div class="intro-box">
+                <h3>📋 このシステムについて</h3>
+                <p>このシステムは、顧客情報を安全に管理し、外部システムと連携するための基盤です。<br>
+                ランサムウェア被害の教訓から、<strong>セキュリティ最優先</strong>で設計されています。</p>
+                <p style="margin-top: 15px;">
+                    <strong>主要な特徴：</strong> リアルタイム更新 ⚡ | 強固なセキュリティ 🔒 | マイクロサービス構成 🔗
+                </p>
+            </div>
+
+            <!-- 統計 -->
+            <div class="section">
+                <h2 class="section-title">📊 システム規模</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">10万</div>
+                        <div class="stat-label">顧客データ</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">100万</div>
+                        <div class="stat-label">年間発注数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">500万</div>
+                        <div class="stat-label">年間測定数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">&lt;3秒</div>
+                        <div class="stat-label">更新反映時間</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- アーキテクチャ全体像 -->
+            <div class="section">
+                <h2 class="section-title">🏗️ システム全体構成</h2>
+                <div class="architecture-diagram">
+                    <!-- レイヤー1: フロントエンド -->
+                    <div class="layer">
+                        <div class="layer-title">👥 ユーザー層（フロントエンド）</div>
+                        <div class="components">
+                            <div class="component">
+                                <div class="component-icon">🖥️</div>
+                                <div class="component-name">Next.js</div>
+                                <div class="component-desc">営業担当・管理者が使う画面</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow">⬇️</div>
+
+                    <!-- レイヤー2: BFF -->
+                    <div class="layer">
+                        <div class="layer-title">🔀 中継層（BFF - Backend for Frontend）</div>
+                        <div class="components">
+                            <div class="component">
+                                <div class="component-icon">⚙️</div>
+                                <div class="component-name">Next.js API Routes</div>
+                                <div class="component-desc">画面とデータベースを繋ぐ中継地点<br>
+                                <small style="color: #999;">↓ 直接 Supabase に接続</small></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow">⬇️ ⬆️</div>
+
+                    <!-- レイヤー3: データベース + 外部連携 -->
+                    <div class="layer">
+                        <div class="layer-title">💾 データ層 & 🔗 外部連携層</div>
+                        <div class="components">
+                            <div class="component">
+                                <div class="component-icon">🗄️</div>
+                                <div class="component-name">Supabase (PostgreSQL)</div>
+                                <div class="component-desc">顧客データを安全に保管<br>
+                                <small style="color: #28a745; font-weight: bold;">← BFF から直接接続</small></div>
+                            </div>
+                            <div class="component">
+                                <div class="component-icon">🐍</div>
+                                <div class="component-name">Python FastAPI</div>
+                                <div class="component-desc">外部システムとの連携を担当<br>
+                                <small style="color: #999;">→ BFF API 経由で Supabase に保存</small></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow">⬇️ ⬆️</div>
+
+                    <!-- レイヤー4: 外部システム -->
+                    <div class="layer">
+                        <div class="layer-title">🌐 外部システム</div>
+                        <div class="components">
+                            <div class="component">
+                                <div class="component-icon">📦</div>
+                                <div class="component-name">発注システム</div>
+                                <div class="component-desc">注文情報を送ってくる</div>
+                            </div>
+                            <div class="component">
+                                <div class="component-icon">📏</div>
+                                <div class="component-name">測定システム</div>
+                                <div class="component-desc">測定結果を送ってくる</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note">
+                    <div class="note-title">💡 ポイント</div>
+                    <strong>接続の仕組み：</strong><br>
+                    ① <strong>BFF → Supabase</strong>: 直接接続（ユーザー操作時）<br>
+                    ② <strong>FastAPI → BFF → Supabase</strong>: 外部連携時は BFF の内部API を経由<br><br>
+                    各層が独立しているため、一箇所が攻撃を受けても他の部分は守られます。<br>
+                    これが「マイクロサービス」の考え方です。
+                </div>
+            </div>
+
+            <!-- 接続の詳細 -->
+            <div class="section">
+                <h2 class="section-title">🔌 データベース接続の詳細</h2>
+                <div class="architecture-diagram">
+                    <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #667eea;">
+                        <h3 style="color: #667eea; text-align: center; margin-bottom: 25px;">2つの接続パターン</h3>
+                        
+                        <!-- パターン1 -->
+                        <div style="margin-bottom: 30px; padding: 20px; background: #e7f3ff; border-radius: 10px;">
+                            <h4 style="color: #0066cc; margin-bottom: 15px;">📱 パターン1: ユーザー操作（直接接続）</h4>
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #0066cc;">
+                                    🖥️ フロントエンド<br>(Next.js)
+                                </div>
+                                <div style="font-size: 1.5em; color: #0066cc;">→</div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #0066cc;">
+                                    ⚙️ BFF<br>(Next.js API)
+                                </div>
+                                <div style="font-size: 1.5em; color: #0066cc;">→</div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #28a745;">
+                                    🗄️ Supabase<br>(PostgreSQL)
+                                </div>
+                            </div>
+                            <p style="margin-top: 15px; color: #555;">
+                                <strong>使用場面:</strong> 顧客の登録・更新・削除、検索など<br>
+                                <strong>特徴:</strong> BFFがSupabaseに直接接続。RLS（Row Level Security）で自動的にアクセス制御
+                            </p>
+                        </div>
+
+                        <!-- パターン2 -->
+                        <div style="padding: 20px; background: #fff4e6; border-radius: 10px;">
+                            <h4 style="color: #cc6600; margin-bottom: 15px;">🌐 パターン2: 外部連携（API経由）</h4>
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #cc6600;">
+                                    📦 外部システム<br>(発注・測定)
+                                </div>
+                                <div style="font-size: 1.5em; color: #cc6600;">→</div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #cc6600;">
+                                    🐍 FastAPI<br>(Python)
+                                </div>
+                                <div style="font-size: 1.5em; color: #cc6600;">→</div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #0066cc;">
+                                    ⚙️ BFF 内部API<br>(OAuth2認証)
+                                </div>
+                                <div style="font-size: 1.5em; color: #cc6600;">→</div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #28a745;">
+                                    🗄️ Supabase<br>(PostgreSQL)
+                                </div>
+                            </div>
+                            <p style="margin-top: 15px; color: #555;">
+                                <strong>使用場面:</strong> Webhook受信、外部データの同期<br>
+                                <strong>特徴:</strong> FastAPIはSupabaseに直接接続せず、必ずBFFの内部APIを経由。セキュリティ強化
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="note" style="background: #e8f5e9; border-left-color: #4caf50;">
+                    <div class="note-title" style="color: #2e7d32;">🎯 なぜこのような設計？</div>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>セキュリティ境界の明確化</strong>: 外部システムはSupabaseに直接アクセスできない</li>
+                        <li><strong>認証の一元管理</strong>: BFFで全ての認証・認可を統一的に処理</li>
+                        <li><strong>データ整合性</strong>: 顧客IDの解決などのビジネスロジックをBFFに集約</li>
+                        <li><strong>監査ログ</strong>: 全ての書き込みがBFFを経由するため、記録漏れがない</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- データの流れ -->
+            <div class="section">
+                <h2 class="section-title">🔄 データが流れる仕組み</h2>
+                
+                <h3 style="color: #667eea; margin: 30px 0 20px 0;">パターン1: 営業担当が顧客情報を登録する場合</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step" data-step="1">
+                        <h4>営業担当が画面で顧客情報を入力</h4>
+                        <p>名前、連絡先、住所などを入力して「登録」ボタンを押す</p>
+                    </div>
+                    <div class="flow-step" data-step="2">
+                        <h4>BFFが認証チェック</h4>
+                        <p>「このユーザーは本当にログインしているか？」を確認</p>
+                    </div>
+                    <div class="flow-step" data-step="3">
+                        <h4>入力データの検証</h4>
+                        <p>「電話番号の形式は正しいか？」などをチェック</p>
+                    </div>
+                    <div class="flow-step" data-step="4">
+                        <h4>データベースに保存</h4>
+                        <p>Supabaseに安全に保存。自動的に所有者情報も記録</p>
+                    </div>
+                    <div class="flow-step" data-step="5">
+                        <h4>監査ログに記録</h4>
+                        <p>「誰が、いつ、何をしたか」を記録（後から確認できる）</p>
+                    </div>
+                    <div class="flow-step" data-step="6">
+                        <h4>画面に完了メッセージ</h4>
+                        <p>「登録が完了しました」と表示される</p>
+                    </div>
+                </div>
+
+                <h3 style="color: #667eea; margin: 30px 0 20px 0;">パターン2: 外部システムから発注情報が届く場合</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step" data-step="1">
+                        <h4>外部システムがWebhookで通知</h4>
+                        <p>「新しい発注が入りました！」とリアルタイムで知らせてくる</p>
+                    </div>
+                    <div class="flow-step" data-step="2">
+                        <h4>FastAPIが署名を検証</h4>
+                        <p>「本当に正規のシステムからの通知か？」を確認（偽物を弾く）</p>
+                    </div>
+                    <div class="flow-step" data-step="3">
+                        <h4>重複チェック</h4>
+                        <p>「この通知は前にも受け取ってない？」を確認</p>
+                    </div>
+                    <div class="flow-step" data-step="4">
+                        <h4>ジョブとして記録</h4>
+                        <p>処理の履歴を残す（失敗した場合に再試行できる）</p>
+                    </div>
+                    <div class="flow-step" data-step="5">
+                        <h4>顧客IDを特定</h4>
+                        <p>外部の顧客コードから、内部の顧客IDに変換</p>
+                    </div>
+                    <div class="flow-step" data-step="6">
+                        <h4>データベースに保存</h4>
+                        <p>発注情報を顧客に紐づけて保存</p>
+                    </div>
+                    <div class="flow-step" data-step="7">
+                        <h4>リアルタイム更新</h4>
+                        <p>見ている画面に即座に反映（3秒以内）</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- セキュリティ対策 -->
+            <div class="section">
+                <h2 class="section-title">🔒 セキュリティ対策</h2>
+                <div class="security-grid">
+                    <div class="security-card">
+                        <h4><span class="security-icon">🎫</span>JWT認証</h4>
+                        <p>デジタルな「入館証」で正規ユーザーを確認</p>
+                        <ul>
+                            <li>偽造できない電子署名</li>
+                            <li>有効期限付き</li>
+                            <li>自動更新</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card">
+                        <h4><span class="security-icon">🚧</span>IP制限</h4>
+                        <p>特定の場所からしかアクセスできない</p>
+                        <ul>
+                            <li>社内ネットワークのみ許可</li>
+                            <li>不正アクセスを自動ブロック</li>
+                            <li>リアルタイムログ記録</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card">
+                        <h4><span class="security-icon">⏱️</span>レート制限</h4>
+                        <p>短時間に大量アクセスを防ぐ</p>
+                        <ul>
+                            <li>1分間に100回まで</li>
+                            <li>攻撃を自動検知</li>
+                            <li>一時的にブロック</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card">
+                        <h4><span class="security-icon">✅</span>入力検証</h4>
+                        <p>不正なデータを事前にブロック</p>
+                        <ul>
+                            <li>形式チェック</li>
+                            <li>サイズ制限</li>
+                            <li>危険な文字を除去</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card">
+                        <h4><span class="security-icon">🔐</span>データ暗号化</h4>
+                        <p>個人情報を暗号化して保護</p>
+                        <ul>
+                            <li>保存時に自動暗号化</li>
+                            <li>通信時はHTTPS</li>
+                            <li>PII自動マスキング</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card">
+                        <h4><span class="security-icon">📝</span>監査ログ</h4>
+                        <p>すべての操作を記録</p>
+                        <ul>
+                            <li>誰が何をしたか記録</li>
+                            <li>変更前後の比較</li>
+                            <li>改ざん不可能</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主要機能一覧 -->
+            <div class="section">
+                <h2 class="section-title">⚙️ 主要機能一覧</h2>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>機能</th>
+                            <th>説明</th>
+                            <th>ステータス</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>顧客管理CRUD</strong></td>
+                            <td>顧客の登録・閲覧・更新・削除</td>
+                            <td><span class="badge badge-success">完了</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>全文検索</strong></td>
+                            <td>顧客名・コード・担当者名から高速検索</td>
+                            <td><span class="badge badge-success">完了</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>権限管理（RLS）</strong></td>
+                            <td>自分が登録した顧客のみ表示</td>
+                            <td><span class="badge badge-success">完了</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Webhook連携</strong></td>
+                            <td>外部システムからリアルタイム受信</td>
+                            <td><span class="badge badge-success">完了</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>M2M API</strong></td>
+                            <td>他サービスからの高速検索</td>
+                            <td><span class="badge badge-success">完了</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>監査ログ</strong></td>
+                            <td>全操作の記録と追跡</td>
+                            <td><span class="badge badge-success">完了</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>ジョブ管理</strong></td>
+                            <td>連携処理の履歴・再試行</td>
+                            <td><span class="badge badge-warning">部分完了</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>フロントエンド</strong></td>
+                            <td>ユーザー画面の実装</td>
+                            <td><span class="badge badge-info">未着手</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 実装済みセキュリティ強化 -->
+            <div class="section">
+                <h2 class="section-title">✨ 最近の強化内容（v0.10）</h2>
+                <div class="flow-diagram">
+                    <div class="flow-step" data-step="✓">
+                        <h4>OAuth2 JWT認証実装</h4>
+                        <p>本人確認の仕組みを強化。偽造できないデジタル証明書を導入</p>
+                    </div>
+                    <div class="flow-step" data-step="✓">
+                        <h4>IP制限・レート制限</h4>
+                        <p>不正アクセスを自動でブロック。攻撃を早期検知</p>
+                    </div>
+                    <div class="flow-step" data-step="✓">
+                        <h4>入力バリデーション強化</h4>
+                        <p>危険なデータの混入を防止。全てのデータを検証</p>
+                    </div>
+                    <div class="flow-step" data-step="✓">
+                        <h4>PII最小化</h4>
+                        <p>個人情報の露出を最小限に。必要なデータのみ公開</p>
+                    </div>
+                    <div class="flow-step" data-step="✓">
+                        <h4>監査ログ自動マスキング</h4>
+                        <p>ログに残る個人情報を自動的に隠す（メール、電話番号など）</p>
+                    </div>
+                    <div class="flow-step" data-step="✓">
+                        <h4>ジョブ履歴管理</h4>
+                        <p>外部連携の成功・失敗を記録。問題発生時に追跡可能</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 技術的な特徴 -->
+            <div class="section">
+                <h2 class="section-title">🚀 技術的な特徴</h2>
+                <div class="security-grid">
+                    <div class="security-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                        <h4><span class="security-icon">⚡</span>リアルタイム</h4>
+                        <p>データ更新が3秒以内に画面に反映</p>
+                        <ul>
+                            <li>キャッシュを使わない</li>
+                            <li>常に最新データ</li>
+                            <li>WebSocket通信</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                        <h4><span class="security-icon">🔗</span>マイクロサービス</h4>
+                        <p>機能ごとに独立したシステム</p>
+                        <ul>
+                            <li>障害の影響を局所化</li>
+                            <li>独立して拡張可能</li>
+                            <li>セキュリティ境界明確</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                        <h4><span class="security-icon">📊</span>監視・観測</h4>
+                        <p>システムの状態を常に把握</p>
+                        <ul>
+                            <li>構造化ログ</li>
+                            <li>パフォーマンス計測</li>
+                            <li>アラート通知</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
+                        <h4><span class="security-icon">♻️</span>自動復旧</h4>
+                        <p>エラー時の自動再試行</p>
+                        <ul>
+                            <li>指数バックオフ</li>
+                            <li>サーキットブレーカー</li>
+                            <li>ジョブ再実行</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 今後の予定 -->
+            <div class="section">
+                <h2 class="section-title">📅 今後の実装予定</h2>
+                <div class="note" style="background: #d1ecf1; border-left-color: #17a2b8;">
+                    <div class="note-title" style="color: #0c5460;">次のステップ</div>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>フロントエンド実装</strong> - ユーザーが使う画面を作成</li>
+                        <li><strong>RPC化</strong> - データベース操作をさらに安全に</li>
+                        <li><strong>負荷テスト</strong> - 大量アクセス時の動作確認</li>
+                        <li><strong>ステージング検証</strong> - 本番前の総合テスト</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- 用語解説 -->
+            <div class="section">
+                <h2 class="section-title">📖 用語解説</h2>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>用語</th>
+                            <th>わかりやすい説明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>BFF</strong></td>
+                            <td>「Backend for Frontend」の略。画面専用の中継サーバー</td>
+                        </tr>
+                        <tr>
+                            <td><strong>JWT</strong></td>
+                            <td>偽造できないデジタル証明書。本人確認に使う</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Webhook</strong></td>
+                            <td>「何か起きたら教えてね」という仕組み。リアルタイム通知</td>
+                        </tr>
+                        <tr>
+                            <td><strong>RLS</strong></td>
+                            <td>「Row Level Security」。データベースで自分のデータだけ見せる</td>
+                        </tr>
+                        <tr>
+                            <td><strong>PII</strong></td>
+                            <td>「個人を特定できる情報」。メールや電話番号など</td>
+                        </tr>
+                        <tr>
+                            <td><strong>M2M</strong></td>
+                            <td>「Machine to Machine」。システム同士の自動連携</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Zod</strong></td>
+                            <td>データの形式をチェックするツール（不正データを弾く）</td>
+                        </tr>
+                        <tr>
+                            <td><strong>サーキットブレーカー</strong></td>
+                            <td>連続エラー時に自動で処理を止める「安全装置」</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // スムーススクロール
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // ホバーエフェクト強化
+        document.querySelectorAll('.component').forEach(component => {
+            component.addEventListener('mouseenter', function() {
+                this.style.borderColor = '#f5576c';
+            });
+            component.addEventListener('mouseleave', function() {
+                this.style.borderColor = '#667eea';
+            });
+        });
+    </script>
+</body>
+</html>

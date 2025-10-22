@@ -1,0 +1,31 @@
+.app-layout {
+  height: 100vh;
+  background: var(--base-bg);
+  display: flex;
+  overflow: hidden;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.content-area {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: var(--base-bg);
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .content-area {
+    padding: 1rem;
+  }
+}
+

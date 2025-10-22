@@ -1,0 +1,35 @@
+# FastAPI 連携サービス - Python依存関係
+# リアルタイム最優先、OAuth2 CC認証、Supabase連携
+
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Supabase クライアント
+supabase==2.3.0
+postgrest==0.13.2
+
+# OAuth2 / 認証
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.6
+httpx==0.26.0
+
+# 再試行・制御
+tenacity==8.2.3
+circuitbreaker==1.4.0
+
+# ログ・監視
+structlog==24.1.0
+python-json-logger==2.0.7
+
+# 環境変数
+python-dotenv==1.0.0
+
+# 開発・テスト
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+httpx==0.26.0
+
+
