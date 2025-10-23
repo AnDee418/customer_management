@@ -15,6 +15,11 @@ export const customerTypeSchema = z.enum(['顧客', 'スタッフ', 'サポー�
 export const genderSchema = z.enum(['男性', '女性', 'その他', '未回答'])
 
 /**
+ * ユーザーロール
+ */
+export const userRoleSchema = z.enum(['admin', 'manager', 'user', 'viewer'])
+
+/**
  * 顧客作成スキーマ
  */
 export const createCustomerSchema = z.object({
@@ -89,12 +94,101 @@ export const createContactSchema = z.object({
 export const updateContactSchema = createContactSchema.partial().omit({ customer_id: true })
 
 /**
+ * 管理者によるユーザー作成スキーマ
+ */
+const optionalUuidSchema = z.preprocess(
+  (value) => {
+    if (value === '' || value === undefined || value === null) {
+      return null
+    }
+    return value
+  },
+  z.string().uuid().nullable()
+)
+
+const optionalTextSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) return undefined
+    if (value === null) return null
+    if (typeof value === 'string' && value.trim() === '') {
+      return null
+    }
+    return typeof value === 'string' ? value : undefined
+  },
+  z.string().min(1).nullable().optional()
+)
+
+export const createAdminUserSchema = z.object({
+  email: z.string().email('有効なメールアドレスを入力してください'),
+  display_name: z.string().min(1, '表示名は必須です'),
+  department: optionalTextSchema,
+  role: userRoleSchema.default('user'),
+  team_id: optionalUuidSchema.optional(),
+  location_id: optionalUuidSchema.optional(),
+  send_invite: z.boolean().default(true),
+  redirect_to: z.string().url().optional(),
+  temporary_password: z.string().min(12, '仮パスワードは12文字以上で入力してください').optional(),
+})
+
+/**
+ * 管理者によるユーザー更新スキーマ
+ */
+export const updateAdminUserSchema = z.object({
+  display_name: z.string().min(1, '表示名は必須です').optional(),
+  department: optionalTextSchema,
+  role: userRoleSchema.optional(),
+  team_id: optionalUuidSchema.optional(),
+  location_id: optionalUuidSchema.optional(),
+})
+
+const sortOrderSchema = z.preprocess(
+  (value) => {
+    if (value === undefined || value === null || value === '') return undefined
+    if (typeof value === 'string') {
+      const parsed = Number(value)
+      return Number.isNaN(parsed) ? value : parsed
+    }
+    return value
+  },
+  z.number().int().min(0).max(10000)
+)
+
+/**
+ * 所属地スロット作成スキーマ
+ */
+export const createLocationSlotSchema = z.object({
+  name: z.string().min(1, '名称は必須です'),
+  description: optionalTextSchema,
+  sort_order: sortOrderSchema.default(100),
+  is_active: z.boolean().default(true),
+})
+
+/**
+ * 所属地スロット更新スキーマ
+ */
+export const updateLocationSlotSchema = createLocationSlotSchema.partial()
+
+/**
+ * 所属チーム作成スキーマ
+ */
+export const createTeamSchema = z.object({
+  name: z.string().min(1, 'チーム名は必須です'),
+})
+
+/**
+ * 所属チーム更新スキーマ
+ */
+export const updateTeamSchema = z.object({
+  name: z.string().min(1, 'チーム名は必須です').optional(),
+})
+
+/**
  * バリデーションヘルパー
  */
-export function validate<T>(
-  schema: z.ZodSchema<T>,
+export function validate<T extends z.ZodTypeAny>(
+  schema: T,
   data: unknown
-): { success: true; data: T } | { success: false; errors: z.ZodError } {
+): { success: true; data: z.infer<T> } | { success: false; errors: z.ZodError<z.input<T>> } {
   const result = schema.safeParse(data)
   
   if (result.success) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -16,7 +16,8 @@ import {
   faChevronRight,
   faUser,
   faSignOutAlt,
-  faIdCard
+  faIdCard,
+  faUsersGear
 } from '@fortawesome/free-solid-svg-icons'
 import { useAuth } from '@/lib/auth/auth-context'
 import './Sidebar.css'
@@ -47,6 +48,48 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, signOut } = useAuth()
+  const [profileRole, setProfileRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!user) {
+      setProfileRole(null)
+      return
+    }
+
+    const controller = new AbortController()
+
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch('/api/account/profile', {
+          headers: { 'Cache-Control': 'no-store' },
+          signal: controller.signal,
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        if (data?.role) {
+          setProfileRole(data.role)
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          return
+        }
+        console.error('Failed to load profile role', error)
+      }
+    }
+
+    fetchProfile()
+
+    return () => controller.abort()
+  }, [user])
+
+  const menuList = useMemo(() => {
+    const items = [...menuItems]
+    if (profileRole === 'admin') {
+      items.splice(3, 0, { id: 'admin', label: '管理者', icon: faUsersGear, href: '/admin' })
+      return items
+    }
+    return items.filter((item) => item.id !== 'admin' && item.id !== 'settings')
+  }, [profileRole])
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
@@ -71,7 +114,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* ナビゲーションメニュー */}
       <nav className="sidebar-nav">
-        {menuItems.map((item) => {
+        {menuList.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link
@@ -121,4 +164,3 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     </aside>
   )
 }
-
