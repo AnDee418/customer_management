@@ -26,7 +26,14 @@ export function initializeChartTooltip() {
         if (tooltipValue) tooltipValue.textContent = `${value}件`
         if (tooltipChange) {
           tooltipChange.textContent = `前月比 ${change}`
-          ;(tooltipChange as HTMLElement).style.color = change.startsWith('+') ? '#10b981' : '#ef4444'
+          const changeElement = tooltipChange as HTMLElement
+          if (change.startsWith('+')) {
+            changeElement.style.color = '#10b981'
+          } else if (change.startsWith('-')) {
+            changeElement.style.color = '#ef4444'
+          } else {
+            changeElement.style.color = '#6b7280'
+          }
         }
         
         tooltip.classList.add('show')
