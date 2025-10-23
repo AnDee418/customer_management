@@ -159,6 +159,12 @@ select.input:disabled {
   border: 1px solid rgba(20, 36, 63, 0.2);
 }
 
+.badge-agency {
+  background: rgba(192, 132, 252, 0.12);
+  color: #7e22ce;
+  border: 1px solid rgba(192, 132, 252, 0.3);
+}
+
 .badge-viewer {
   background: rgba(107, 114, 128, 0.1);
   color: var(--gray-600);

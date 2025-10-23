@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const search = request.nextUrl.searchParams.get('search')?.toLowerCase().trim() ?? ''
     const roleFilter = request.nextUrl.searchParams.get('role')?.trim()
     const statusFilter = request.nextUrl.searchParams.get('status')?.trim()
+    const locationFilter = request.nextUrl.searchParams.get('location_id')?.trim()
     const page = Math.max(parseInt(request.nextUrl.searchParams.get('page') || '1', 10), 1)
     const perPageParam = parseInt(request.nextUrl.searchParams.get('per_page') || `${DEFAULT_PER_PAGE}`, 10)
     const perPage = Math.min(Math.max(perPageParam, 1), 100)
@@ -94,8 +95,9 @@ export async function GET(request: NextRequest) {
 
       const matchesRole = !roleFilter || user.role === roleFilter
       const matchesStatus = !statusFilter || user.status === statusFilter
+      const matchesLocation = !locationFilter || user.location_id === locationFilter
 
-      return matchesSearch && matchesRole && matchesStatus
+      return matchesSearch && matchesRole && matchesStatus && matchesLocation
     })
 
     const total = filtered.length
@@ -115,6 +117,7 @@ export async function GET(request: NextRequest) {
       search,
       roleFilter,
       statusFilter,
+      locationFilter,
     })
 
     return NextResponse.json(

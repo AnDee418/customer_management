@@ -163,7 +163,7 @@ create table if not exists public.audit_logs (
 -- profiles
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  role text not null default 'user', -- admin, manager, user, viewer
+  role text not null default 'user', -- admin, manager, agency, user, viewer
   team_id uuid references public.teams(id),
   display_name text,
   department text,

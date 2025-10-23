@@ -118,6 +118,46 @@
   gap: 0.5rem;
 }
 
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.filter-select,
+.filter-input {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(20, 36, 63, 0.12);
+}
+
+.age-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.age-separator {
+  color: var(--gray-500);
+  font-size: 0.85rem;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
 .filter-chip {
   padding: 0.5rem 1rem;
   border: 1px solid var(--gray-300);
@@ -330,6 +370,16 @@
   color: var(--white);
 }
 
+.btn-tertiary {
+  background: transparent;
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
+}
+
+.btn-tertiary:hover {
+  background: rgba(20, 36, 63, 0.08);
+}
+
 /* 状態表示 */
 .loading-state,
 .empty-state {
@@ -363,6 +413,19 @@
 
   .filters-bar {
     flex-direction: column;
+  }
+
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .age-inputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .age-separator {
+    display: none;
   }
 
   .table-container {

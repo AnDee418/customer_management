@@ -62,6 +62,10 @@ LIMIT 5;
 -- INSERT INTO public.profiles (user_id, role, display_name, department)
 -- VALUES ('user-id-here', 'manager', 'マネージャー名', '部署名');
 
+-- 代理店（agency）: 代理店向け権限
+-- INSERT INTO public.profiles (user_id, role, display_name, department)
+-- VALUES ('user-id-here', 'agency', '代理店担当者名', '部署名');
+
 -- 一般ユーザー（user）: 自分のデータのみアクセス
 -- INSERT INTO public.profiles (user_id, role, display_name, department)
 -- VALUES ('user-id-here', 'user', 'ユーザー名', '部署名');

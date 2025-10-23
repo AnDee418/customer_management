@@ -161,7 +161,7 @@ create table if not exists public.profiles (
 );
 
 comment on table public.profiles is 'アプリ用ユーザープロファイル（auth.users と1:1）';
-comment on column public.profiles.role is 'admin, manager, user, viewer';
+comment on column public.profiles.role is 'admin, manager, agency, user, viewer';
 
 create index if not exists idx_profiles_team on public.profiles(team_id);
 create index if not exists idx_profiles_role on public.profiles(role);

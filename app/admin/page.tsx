@@ -15,8 +15,6 @@ import {
   faEnvelope,
   faLock,
   faMapMarkerAlt,
-  faChartLine,
-  faUsers,
   faCog,
   faList,
   faPlus,
@@ -62,14 +60,13 @@ type LocationSlot = {
   created_at?: string
 }
 
-type RoleSummary = Record<string, number>
-
-type TabType = 'dashboard' | 'users' | 'create' | 'settings'
+type TabType = 'users' | 'create' | 'settings'
 type SettingsSubTab = 'locations' | 'teams'
 
 const roleLabels: Record<string, string> = {
   admin: '管理者',
   manager: 'マネージャー',
+  agency: '代理店',
   user: '一般ユーザー',
   viewer: '閲覧者',
 }
@@ -80,7 +77,7 @@ const statusLabels: Record<AdminUser['status'], { label: string; className: stri
   disabled: { label: '停止中', className: 'badge-disabled' },
 }
 
-const roleOrder = ['admin', 'manager', 'user', 'viewer']
+const roleOrder = ['admin', 'manager', 'agency', 'user', 'viewer']
 
 const initialInviteForm = {
   email: '',
@@ -93,19 +90,18 @@ const initialInviteForm = {
 }
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  const [activeTab, setActiveTab] = useState<TabType>('users')
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('locations')
   const [users, setUsers] = useState<AdminUser[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [locations, setLocations] = useState<LocationSlot[]>([])
-  const [roleSummary, setRoleSummary] = useState<RoleSummary>({})
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [filters, setFilters] = useState({ search: '', role: '', status: '' })
+  const [filters, setFilters] = useState({ search: '', role: '', status: '', location: '' })
   const [searchInput, setSearchInput] = useState('')
 
   const [inviteForm, setInviteForm] = useState(() => ({ ...initialInviteForm }))
@@ -167,6 +163,7 @@ export default function AdminPage() {
       if (filters.search) params.set('search', filters.search)
       if (filters.role) params.set('role', filters.role)
       if (filters.status) params.set('status', filters.status)
+      if (filters.location) params.set('location_id', filters.location)
 
       const response = await fetch(`/api/admin/users?${params.toString()}`, {
         headers: { 'Cache-Control': 'no-store' },
@@ -183,7 +180,6 @@ export default function AdminPage() {
       const result = await response.json()
       setUsers(result.data || [])
       setTeams(result.teams || [])
-      setRoleSummary(result.role_summary || {})
       setTotal(result.total || 0)
       setPerPage(result.per_page || 25)
       setLocations(result.locations || [])
@@ -193,7 +189,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters.search, filters.role, filters.status, page, perPage])
+  }, [filters.search, filters.role, filters.status, filters.location, page, perPage])
 
   useEffect(() => {
     fetchUsers()
@@ -599,13 +595,6 @@ export default function AdminPage() {
         {/* タブナビゲーション */}
         <nav className="admin-tabs">
           <button
-            className={`admin-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <FontAwesomeIcon icon={faChartLine} />
-            <span>ダッシュボード</span>
-          </button>
-          <button
             className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
@@ -627,46 +616,6 @@ export default function AdminPage() {
             <span>設定</span>
           </button>
         </nav>
-
-        {/* ダッシュボードタブ */}
-        {activeTab === 'dashboard' && (
-          <div className="tab-content">
-            <section className="admin-section">
-              <h2 className="section-title">
-                <FontAwesomeIcon icon={faUserShield} />
-                ユーザーサマリー
-              </h2>
-              <div className="summary-grid">
-                {roleOrder.map((role) => (
-                  <div key={role} className="summary-card">
-                    <div className="summary-header">
-                      <FontAwesomeIcon icon={faUserShield} />
-                      <span>{roleLabels[role]}</span>
-                    </div>
-                    <div className="summary-value">{roleSummary[role] ?? 0}</div>
-                  </div>
-                ))}
-                <div className="summary-card">
-                  <div className="summary-header">
-                    <FontAwesomeIcon icon={faUsersGear} />
-                    <span>総ユーザー</span>
-                  </div>
-                  <div className="summary-value">{total}</div>
-                </div>
-              </div>
-            </section>
-
-            <section className="admin-section">
-              <h2 className="section-title">
-                <FontAwesomeIcon icon={faUsers} />
-                最近のアクティビティ
-              </h2>
-              <p className="placeholder-text">
-                最近のユーザーアクティビティや変更履歴がここに表示されます。
-              </p>
-            </section>
-          </div>
-        )}
 
         {/* アカウント発行タブ */}
         {activeTab === 'create' && (
@@ -808,10 +757,17 @@ export default function AdminPage() {
               <FontAwesomeIcon icon={faUsersGear} />
               ユーザー管理
             </h2>
-            <button className="btn btn-secondary" onClick={() => fetchUsers()} disabled={loading}>
-              <FontAwesomeIcon icon={faSync} />
-              再読み込み
-            </button>
+            <div className="section-meta">
+              <span className="total-indicator">
+                <FontAwesomeIcon icon={faListOl} />
+                総ユーザー数
+                <strong>{total}</strong>
+              </span>
+              <button className="btn btn-secondary" onClick={() => fetchUsers()} disabled={loading}>
+                <FontAwesomeIcon icon={faSync} />
+                再読み込み
+              </button>
+            </div>
           </div>
 
           <div className="filters-bar">
@@ -871,6 +827,24 @@ export default function AdminPage() {
                   <option value="active">有効</option>
                   <option value="invited">招待中</option>
                   <option value="disabled">停止中</option>
+                </select>
+              </div>
+              <div className="filter-field">
+                <label>所属地</label>
+                <select
+                  value={filters.location}
+                  onChange={(e) => {
+                    setPage(1)
+                    setFilters((prev) => ({ ...prev, location: e.target.value }))
+                  }}
+                >
+                  <option value="">すべて</option>
+                  {locationOptions.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                      {!location.is_active ? '（停止中）' : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

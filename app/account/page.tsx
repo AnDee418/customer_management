@@ -116,6 +116,7 @@ export default function AccountPage() {
     const roleMap: Record<string, string> = {
       admin: '管理者',
       manager: 'マネージャー',
+      agency: '代理店',
       user: '一般ユーザー',
       viewer: '閲覧者'
     }

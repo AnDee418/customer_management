@@ -20,6 +20,13 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
+    const typeFilter = searchParams.get('type')?.trim()
+    const genderFilter = searchParams.get('gender')?.trim()
+    const prefectureFilter = searchParams.get('prefecture')?.trim()
+    const minAgeParam = searchParams.get('min_age')
+    const maxAgeParam = searchParams.get('max_age')
+    const minAge = minAgeParam ? Number.parseInt(minAgeParam, 10) : null
+    const maxAge = maxAgeParam ? Number.parseInt(maxAgeParam, 10) : null
 
     let query = supabase
       .from('customers')
@@ -33,6 +40,30 @@ export async function GET(request: NextRequest) {
       query = query.textSearch('search_vector', search)
     }
 
+    if (typeFilter) {
+      query = query.eq('type', typeFilter)
+    }
+
+    if (genderFilter) {
+      if (genderFilter === 'unset') {
+        query = query.is('gender', null)
+      } else {
+        query = query.eq('gender', genderFilter)
+      }
+    }
+
+    if (prefectureFilter) {
+      query = query.eq('prefecture', prefectureFilter)
+    }
+
+    if (minAge !== null && !Number.isNaN(minAge)) {
+      query = query.gte('age', minAge)
+    }
+
+    if (maxAge !== null && !Number.isNaN(maxAge)) {
+      query = query.lte('age', maxAge)
+    }
+
     const { data, error, count } = await query
 
     if (error) {
@@ -40,7 +71,17 @@ export async function GET(request: NextRequest) {
       return errorResponse(error.message, 400)
     }
 
-    structuredLog('info', 'Customers fetched', { count, search, limit, offset })
+    structuredLog('info', 'Customers fetched', {
+      count,
+      search,
+      limit,
+      offset,
+      typeFilter,
+      genderFilter,
+      prefectureFilter,
+      minAge,
+      maxAge,
+    })
 
     return NextResponse.json(
       { data, count },

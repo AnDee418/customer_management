@@ -17,7 +17,7 @@ export const genderSchema = z.enum(['男性', '女性', 'その他', '未回答'
 /**
  * ユーザーロール
  */
-export const userRoleSchema = z.enum(['admin', 'manager', 'user', 'viewer'])
+export const userRoleSchema = z.enum(['admin', 'manager', 'agency', 'user', 'viewer'])
 
 /**
  * 顧客作成スキーマ

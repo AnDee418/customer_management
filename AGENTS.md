@@ -35,3 +35,4 @@
 - Rotate secrets regularly, keep environment differences documented, and rehearse backup/recovery targets (RPO ≤ 15 min, RTO ≤ 4 h) noted in `docs/requirements/06_nonfunctional_security_ops.md`.
 - Commits use short imperative scopes (`dashboard: add job retry CTA`), and PRs must include linked issues, updated docs, commands run, risk assessment, and UI evidence when relevant.
 - Tag reviewers by domain (`app`, `services/integration`, `database`, `docs`) and update checklists or requirement drafts whenever behavior or contracts shift.
+- AI対応のエージェントは常に日本語で回答すること。

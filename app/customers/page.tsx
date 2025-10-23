@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -27,6 +27,8 @@ interface Customer {
   code: string | null
   type: CustomerType
   gender: string | null
+  prefecture: string | null
+  age: number | null
   contact: string
   address: string
   created_at: string
@@ -39,6 +41,10 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<CustomerType | 'all'>('all')
+  const [genderFilter, setGenderFilter] = useState<'all' | '男性' | '女性' | 'その他' | '未回答' | 'unset'>('all')
+  const [prefectureFilter, setPrefectureFilter] = useState('')
+  const [minAge, setMinAge] = useState('')
+  const [maxAge, setMaxAge] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
   // 顧客データ取得
@@ -72,9 +78,13 @@ export default function CustomersPage() {
   }
 
   // フィルター処理
+  const parsedMinAge = minAge ? parseInt(minAge, 10) : null
+  const parsedMaxAge = maxAge ? parseInt(maxAge, 10) : null
+
   const filteredCustomers = customers.filter(customer => {
     // 検索フィルター
-    const matchesSearch = searchQuery === '' || 
+    const matchesSearch =
+      searchQuery === '' ||
       customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       customer.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       customer.contact.toLowerCase().includes(searchQuery.toLowerCase())
@@ -82,8 +92,45 @@ export default function CustomersPage() {
     // タイプフィルター
     const matchesType = typeFilter === 'all' || customer.type === typeFilter
 
-    return matchesSearch && matchesType
+    // 性別フィルター
+    const matchesGender =
+      genderFilter === 'all' ||
+      (genderFilter === 'unset' && (!customer.gender || customer.gender.trim() === '')) ||
+      customer.gender === genderFilter
+
+    // 都道府県フィルター
+    const matchesPrefecture =
+      prefectureFilter === '' ||
+      (customer.prefecture ? customer.prefecture === prefectureFilter : false)
+
+    // 年齢フィルター
+    const ageValue = typeof customer.age === 'number' ? customer.age : null
+    const matchesMinAge =
+      parsedMinAge === null || (ageValue !== null && ageValue >= parsedMinAge)
+    const matchesMaxAge =
+      parsedMaxAge === null || (ageValue !== null && ageValue <= parsedMaxAge)
+
+    return matchesSearch && matchesType && matchesGender && matchesPrefecture && matchesMinAge && matchesMaxAge
   })
+
+  const prefectureOptions = useMemo(() => {
+    const set = new Set<string>()
+    customers.forEach((customer) => {
+      if (customer.prefecture) {
+        set.add(customer.prefecture)
+      }
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'))
+  }, [customers])
+
+  const resetFilters = () => {
+    setSearchQuery('')
+    setTypeFilter('all')
+    setGenderFilter('all')
+    setPrefectureFilter('')
+    setMinAge('')
+    setMaxAge('')
+  }
 
   // タイプバッジの色
   const getTypeBadgeClass = (type: CustomerType) => {
@@ -197,25 +244,96 @@ export default function CustomersPage() {
       {/* フィルターパネル */}
       {showFilters && (
         <div className="filter-panel">
-          <div className="filter-group">
-            <label className="filter-label">タイプ</label>
-            <div className="filter-options">
-              <button
-                className={`filter-chip ${typeFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setTypeFilter('all')}
-              >
-                すべて
-              </button>
-              {(['顧客', 'スタッフ', 'サポート', '社員', '代理店', 'その他'] as CustomerType[]).map(type => (
+          <div className="filter-grid">
+            <div className="filter-group">
+              <label className="filter-label">タイプ</label>
+              <div className="filter-options">
                 <button
-                  key={type}
-                  className={`filter-chip ${typeFilter === type ? 'active' : ''}`}
-                  onClick={() => setTypeFilter(type)}
+                  className={`filter-chip ${typeFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setTypeFilter('all')}
                 >
-                  {type}
+                  すべて
                 </button>
-              ))}
+                {(['顧客', 'スタッフ', 'サポート', '社員', '代理店', 'その他'] as CustomerType[]).map(type => (
+                  <button
+                    key={type}
+                    className={`filter-chip ${typeFilter === type ? 'active' : ''}`}
+                    onClick={() => setTypeFilter(type)}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            <div className="filter-group">
+              <label className="filter-label">性別</label>
+              <div className="filter-options">
+                {[
+                  { value: 'all' as const, label: 'すべて' },
+                  { value: '男性' as const, label: '男性' },
+                  { value: '女性' as const, label: '女性' },
+                  { value: 'その他' as const, label: 'その他' },
+                  { value: '未回答' as const, label: '未回答' },
+                  { value: 'unset' as const, label: '未設定' },
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    className={`filter-chip ${genderFilter === option.value ? 'active' : ''}`}
+                    onClick={() => setGenderFilter(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <label className="filter-label">都道府県</label>
+              <select
+                className="filter-select"
+                value={prefectureFilter}
+                onChange={(e) => setPrefectureFilter(e.target.value)}
+              >
+                <option value="">すべて</option>
+                {prefectureOptions.map((pref) => (
+                  <option key={pref} value={pref}>
+                    {pref}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label className="filter-label">年齢</label>
+              <div className="age-inputs">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="filter-input"
+                  value={minAge}
+                  onChange={(e) => setMinAge(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="最小"
+                  min={0}
+                />
+                <span className="age-separator">〜</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="filter-input"
+                  value={maxAge}
+                  onChange={(e) => setMaxAge(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="最大"
+                  min={0}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="filter-actions">
+            <button className="btn btn-tertiary" type="button" onClick={resetFilters}>
+              フィルターをクリア
+            </button>
           </div>
         </div>
       )}
@@ -232,10 +350,7 @@ export default function CustomersPage() {
             {searchQuery || typeFilter !== 'all' ? (
               <button 
                 className="btn btn-secondary"
-                onClick={() => {
-                  setSearchQuery('')
-                  setTypeFilter('all')
-                }}
+                onClick={resetFilters}
               >
                 フィルターをクリア
               </button>
@@ -327,4 +442,3 @@ export default function CustomersPage() {
     </AppLayout>
   )
 }
-
