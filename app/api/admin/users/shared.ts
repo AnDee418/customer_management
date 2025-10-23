@@ -8,7 +8,6 @@ export type ProfileRow = {
   team_id: string | null
   location_id: string | null
   created_at?: string
-  updated_at?: string
 }
 
 export type TeamRow = {
@@ -46,7 +45,8 @@ export function determineStatus(user: User): AdminUserDTO['status'] {
     return 'disabled'
   }
 
-  if (user.banned_until && new Date(user.banned_until).getTime() > Date.now()) {
+  const bannedUntil = (user as any).banned_until
+  if (bannedUntil && new Date(bannedUntil).getTime() > Date.now()) {
     return 'disabled'
   }
 
@@ -85,8 +85,8 @@ export function buildAdminUser(
     location_is_active: locationIsActive,
     status,
     created_at: user.created_at,
-    last_sign_in_at: user.last_sign_in_at,
-    email_confirmed_at: user.email_confirmed_at,
+    last_sign_in_at: user.last_sign_in_at ?? null,
+    email_confirmed_at: user.email_confirmed_at ?? null,
     factors_count: Array.isArray((user as any).factors) ? (user as any).factors.length : 0,
   }
 }

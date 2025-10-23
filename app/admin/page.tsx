@@ -8,7 +8,6 @@ import {
   faUserShield,
   faUserPlus,
   faFilter,
-  faPaperPlane,
   faSync,
   faEdit,
   faTimes,
@@ -16,6 +15,16 @@ import {
   faEnvelope,
   faLock,
   faMapMarkerAlt,
+  faChartLine,
+  faUsers,
+  faCog,
+  faList,
+  faPlus,
+  faSave,
+  faUndo,
+  faToggleOn,
+  faToggleOff,
+  faListOl,
 } from '@fortawesome/free-solid-svg-icons'
 import './admin.css'
 
@@ -40,17 +49,23 @@ type AdminUser = {
 type Team = {
   id: string
   name: string
+  created_at?: string
 }
 
 type LocationSlot = {
   id: string
   code: string
   name: string
+  description?: string | null
   is_active: boolean
   sort_order: number
+  created_at?: string
 }
 
 type RoleSummary = Record<string, number>
+
+type TabType = 'dashboard' | 'users' | 'create' | 'settings'
+type SettingsSubTab = 'locations' | 'teams'
 
 const roleLabels: Record<string, string> = {
   admin: '管理者',
@@ -67,7 +82,19 @@ const statusLabels: Record<AdminUser['status'], { label: string; className: stri
 
 const roleOrder = ['admin', 'manager', 'user', 'viewer']
 
+const initialInviteForm = {
+  email: '',
+  display_name: '',
+  role: 'user',
+  team_id: '',
+  location_id: '',
+  password: '',
+  passwordConfirm: '',
+}
+
 export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('locations')
   const [users, setUsers] = useState<AdminUser[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [locations, setLocations] = useState<LocationSlot[]>([])
@@ -81,15 +108,7 @@ export default function AdminPage() {
   const [filters, setFilters] = useState({ search: '', role: '', status: '' })
   const [searchInput, setSearchInput] = useState('')
 
-  const [inviteForm, setInviteForm] = useState({
-    email: '',
-    display_name: '',
-    role: 'user',
-    team_id: '',
-    location_id: '',
-    send_invite: true,
-    temporary_password: '',
-  })
+  const [inviteForm, setInviteForm] = useState(() => ({ ...initialInviteForm }))
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteResult, setInviteResult] = useState<string | null>(null)
 
@@ -101,6 +120,30 @@ export default function AdminPage() {
     location_id: '',
   })
   const [savingEdit, setSavingEdit] = useState(false)
+
+  // Settings tab states
+  const [locationForm, setLocationForm] = useState({
+    name: '',
+    description: '',
+    sort_order: '100',
+    is_active: true,
+  })
+  const [editingLocation, setEditingLocation] = useState<LocationSlot | null>(null)
+  const [editLocationForm, setEditLocationForm] = useState({
+    name: '',
+    description: '',
+    sort_order: '100',
+    is_active: true,
+  })
+  const [locationSaving, setLocationSaving] = useState(false)
+  const [locationInfo, setLocationInfo] = useState<string | null>(null)
+
+  const [teamForm, setTeamForm] = useState({ name: '' })
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null)
+  const [editTeamForm, setEditTeamForm] = useState({ name: '' })
+  const [teamSaving, setTeamSaving] = useState(false)
+  const [teamError, setTeamError] = useState<string | null>(null)
+  const [teamInfo, setTeamInfo] = useState<string | null>(null)
 
   const activeLocations = useMemo(
     () => locations.filter((location) => location.is_active),
@@ -167,6 +210,25 @@ export default function AdminPage() {
     }
   }, [editingUser])
 
+  useEffect(() => {
+    if (editingLocation) {
+      setEditLocationForm({
+        name: editingLocation.name,
+        description: editingLocation.description ?? '',
+        sort_order: String(editingLocation.sort_order),
+        is_active: editingLocation.is_active,
+      })
+    }
+  }, [editingLocation])
+
+  useEffect(() => {
+    if (editingTeam) {
+      setEditTeamForm({
+        name: editingTeam.name,
+      })
+    }
+  }, [editingTeam])
+
   const handleInviteSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setInviteLoading(true)
@@ -178,8 +240,12 @@ export default function AdminPage() {
         throw new Error('メールアドレスと表示名は必須です')
       }
 
-      if (!inviteForm.send_invite && inviteForm.temporary_password && inviteForm.temporary_password.length < 12) {
-        throw new Error('仮パスワードは12文字以上で指定してください')
+      if (!inviteForm.password || inviteForm.password.length < 12) {
+        throw new Error('パスワードは12文字以上で入力してください')
+      }
+
+      if (inviteForm.password !== inviteForm.passwordConfirm) {
+        throw new Error('パスワードと確認用パスワードが一致しません')
       }
 
       const payload = {
@@ -188,8 +254,7 @@ export default function AdminPage() {
         role: inviteForm.role,
         team_id: inviteForm.team_id || undefined,
         location_id: inviteForm.location_id || undefined,
-        send_invite: inviteForm.send_invite,
-        temporary_password: inviteForm.send_invite ? undefined : inviteForm.temporary_password || undefined,
+        password: inviteForm.password,
       }
 
       const response = await fetch('/api/admin/users', {
@@ -206,26 +271,18 @@ export default function AdminPage() {
         throw new Error(detail.error || 'ユーザーの作成に失敗しました')
       }
 
-      const result = await response.json()
-      const generatedPassword = result.generated_password as string | null
+      await response.json()
 
-      setInviteResult(
-        generatedPassword
-          ? `アカウントを作成しました。仮パスワード: ${generatedPassword}`
-          : 'アカウントを作成しました。招待メールを送信しています。'
-      )
+      setInviteResult('アカウントを作成しました。設定したパスワードを利用者に共有してください。')
 
-      setInviteForm({
-        email: '',
-        display_name: '',
-        role: 'user',
-        team_id: '',
-        location_id: '',
-        send_invite: true,
-        temporary_password: '',
-      })
+      setInviteForm(() => ({ ...initialInviteForm }))
 
       await fetchUsers()
+
+      // 成功後はユーザー一覧タブに自動切り替え
+      setTimeout(() => {
+        setActiveTab('users')
+      }, 2000)
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : 'ユーザーの作成に失敗しました')
@@ -295,6 +352,223 @@ export default function AdminPage() {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / perPage)), [total, perPage])
 
+  // Settings tab handlers
+  const handleLocationSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setLocationSaving(true)
+    setError(null)
+    setLocationInfo(null)
+
+    try {
+      if (!locationForm.name.trim()) {
+        throw new Error('名称は必須です')
+      }
+
+      const numericSort = Number(locationForm.sort_order || '0')
+      if (Number.isNaN(numericSort)) {
+        throw new Error('表示順は数値で入力してください')
+      }
+
+      const payload = {
+        name: locationForm.name.trim(),
+        description: locationForm.description.trim() || null,
+        sort_order: numericSort,
+        is_active: locationForm.is_active,
+      }
+
+      const response = await fetch('/api/settings/location-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        throw new Error(detail.error || '所属地スロットの作成に失敗しました')
+      }
+
+      setLocationForm({ name: '', description: '', sort_order: '100', is_active: true })
+      await fetchUsers()
+      setLocationInfo('所属地スロットを作成しました')
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : '所属地スロットの作成に失敗しました')
+    } finally {
+      setLocationSaving(false)
+    }
+  }
+
+  const handleEditLocationSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!editingLocation) return
+
+    setLocationSaving(true)
+    setError(null)
+    setLocationInfo(null)
+
+    try {
+      if (!editLocationForm.name.trim()) {
+        throw new Error('名称は必須です')
+      }
+
+      const numericSort = Number(editLocationForm.sort_order || '0')
+      if (Number.isNaN(numericSort)) {
+        throw new Error('表示順は数値で入力してください')
+      }
+
+      const diff: Record<string, any> = {}
+
+      if (editLocationForm.name.trim() !== editingLocation.name) {
+        diff.name = editLocationForm.name.trim()
+      }
+      if ((editLocationForm.description.trim() || null) !== (editingLocation.description || null)) {
+        diff.description = editLocationForm.description.trim() || null
+      }
+      if (numericSort !== editingLocation.sort_order) {
+        diff.sort_order = numericSort
+      }
+      if (editLocationForm.is_active !== editingLocation.is_active) {
+        diff.is_active = editLocationForm.is_active
+      }
+
+      if (Object.keys(diff).length === 0) {
+        setEditingLocation(null)
+        return
+      }
+
+      const response = await fetch(`/api/settings/location-slots/${editingLocation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(diff),
+      })
+
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        throw new Error(detail.error || '所属地スロットの更新に失敗しました')
+      }
+
+      setEditingLocation(null)
+      await fetchUsers()
+      setLocationInfo('所属地スロットを更新しました')
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : '所属地スロットの更新に失敗しました')
+    } finally {
+      setLocationSaving(false)
+    }
+  }
+
+  const handleLocationEdit = (location: LocationSlot) => {
+    setEditingLocation(location)
+  }
+
+  const handleLocationToggle = async (location: LocationSlot) => {
+    setLocationSaving(true)
+    setError(null)
+    setLocationInfo(null)
+    try {
+      const response = await fetch(`/api/settings/location-slots/${location.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !location.is_active }),
+      })
+
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        throw new Error(detail.error || 'ステータスの更新に失敗しました')
+      }
+
+      await fetchUsers()
+      setLocationInfo('ステータスを更新しました')
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : 'ステータスの更新に失敗しました')
+    } finally {
+      setLocationSaving(false)
+    }
+  }
+
+  const handleTeamSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setTeamSaving(true)
+    setTeamError(null)
+    setTeamInfo(null)
+
+    try {
+      if (!teamForm.name.trim()) {
+        throw new Error('所属チーム名は必須です')
+      }
+
+      const payload = { name: teamForm.name.trim() }
+
+      const response = await fetch('/api/settings/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        throw new Error(detail.error || '所属チームの作成に失敗しました')
+      }
+
+      setTeamForm({ name: '' })
+      await fetchUsers()
+      setTeamInfo('所属チームを作成しました')
+    } catch (err) {
+      console.error(err)
+      setTeamError(err instanceof Error ? err.message : '所属チームの作成に失敗しました')
+    } finally {
+      setTeamSaving(false)
+    }
+  }
+
+  const handleEditTeamSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!editingTeam) return
+
+    setTeamSaving(true)
+    setTeamError(null)
+    setTeamInfo(null)
+
+    try {
+      if (!editTeamForm.name.trim()) {
+        throw new Error('所属チーム名は必須です')
+      }
+
+      if (editTeamForm.name.trim() === editingTeam.name) {
+        setEditingTeam(null)
+        return
+      }
+
+      const payload = { name: editTeamForm.name.trim() }
+
+      const response = await fetch(`/api/settings/teams/${editingTeam.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        throw new Error(detail.error || '所属チームの更新に失敗しました')
+      }
+
+      setEditingTeam(null)
+      await fetchUsers()
+      setTeamInfo('所属チームを更新しました')
+    } catch (err) {
+      console.error(err)
+      setTeamError(err instanceof Error ? err.message : '所属チームの更新に失敗しました')
+    } finally {
+      setTeamSaving(false)
+    }
+  }
+
+  const handleTeamEdit = (team: Team) => {
+    setEditingTeam(team)
+  }
+
   return (
     <AppLayout>
       <div className="page-content admin-page">
@@ -322,12 +596,87 @@ export default function AdminPage() {
           </div>
         )}
 
-        <section className="admin-section">
-          <h2 className="section-title">
+        {/* タブナビゲーション */}
+        <nav className="admin-tabs">
+          <button
+            className={`admin-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <FontAwesomeIcon icon={faChartLine} />
+            <span>ダッシュボード</span>
+          </button>
+          <button
+            className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+          >
+            <FontAwesomeIcon icon={faList} />
+            <span>ユーザー一覧</span>
+          </button>
+          <button
+            className={`admin-tab ${activeTab === 'create' ? 'active' : ''}`}
+            onClick={() => setActiveTab('create')}
+          >
             <FontAwesomeIcon icon={faUserPlus} />
-            アカウント発行
-          </h2>
-          <form className="invite-form" onSubmit={handleInviteSubmit}>
+            <span>アカウント発行</span>
+          </button>
+          <button
+            className={`admin-tab ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <FontAwesomeIcon icon={faCog} />
+            <span>設定</span>
+          </button>
+        </nav>
+
+        {/* ダッシュボードタブ */}
+        {activeTab === 'dashboard' && (
+          <div className="tab-content">
+            <section className="admin-section">
+              <h2 className="section-title">
+                <FontAwesomeIcon icon={faUserShield} />
+                ユーザーサマリー
+              </h2>
+              <div className="summary-grid">
+                {roleOrder.map((role) => (
+                  <div key={role} className="summary-card">
+                    <div className="summary-header">
+                      <FontAwesomeIcon icon={faUserShield} />
+                      <span>{roleLabels[role]}</span>
+                    </div>
+                    <div className="summary-value">{roleSummary[role] ?? 0}</div>
+                  </div>
+                ))}
+                <div className="summary-card">
+                  <div className="summary-header">
+                    <FontAwesomeIcon icon={faUsersGear} />
+                    <span>総ユーザー</span>
+                  </div>
+                  <div className="summary-value">{total}</div>
+                </div>
+              </div>
+            </section>
+
+            <section className="admin-section">
+              <h2 className="section-title">
+                <FontAwesomeIcon icon={faUsers} />
+                最近のアクティビティ
+              </h2>
+              <p className="placeholder-text">
+                最近のユーザーアクティビティや変更履歴がここに表示されます。
+              </p>
+            </section>
+          </div>
+        )}
+
+        {/* アカウント発行タブ */}
+        {activeTab === 'create' && (
+          <div className="tab-content">
+            <section className="admin-section">
+              <h2 className="section-title">
+                <FontAwesomeIcon icon={faUserPlus} />
+                新規アカウント発行
+              </h2>
+              <form className="invite-form" onSubmit={handleInviteSubmit}>
             <div className="form-grid">
               <div className="form-field">
                 <label>
@@ -409,68 +758,51 @@ export default function AdminPage() {
                   <p className="field-help">有効な所属地がありません。設定ページで追加してください。</p>
                 )}
               </div>
-              <div className="form-field toggle-field">
-                <label className="toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={inviteForm.send_invite}
-                    onChange={(e) => setInviteForm((prev) => ({ ...prev, send_invite: e.target.checked }))}
-                  />
-                  招待メールを送信
+              <div className="form-field">
+                <label>
+                  <FontAwesomeIcon icon={faLock} />
+                  パスワード
                 </label>
-                <p className="field-help">無効にすると仮パスワードを発行します</p>
+                <input
+                  type="password"
+                  value={inviteForm.password}
+                  onChange={(e) => setInviteForm((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="12文字以上で入力してください"
+                  minLength={12}
+                  required
+                />
+                <p className="field-help">英数字や記号を組み合わせた12文字以上のパスワードを設定してください</p>
               </div>
-              {!inviteForm.send_invite && (
-                <div className="form-field">
-                  <label>
-                    <FontAwesomeIcon icon={faLock} />
-                    仮パスワード
-                  </label>
-                  <input
-                    type="text"
-                    value={inviteForm.temporary_password}
-                    onChange={(e) => setInviteForm((prev) => ({ ...prev, temporary_password: e.target.value }))}
-                    placeholder="ランダム生成されます（任意）"
-                  />
-                  <p className="field-help">未入力の場合は安全なパスワードを自動発行します</p>
+              <div className="form-field">
+                <label>
+                  <FontAwesomeIcon icon={faLock} />
+                  パスワード（確認）
+                </label>
+                <input
+                  type="password"
+                  value={inviteForm.passwordConfirm}
+                  onChange={(e) => setInviteForm((prev) => ({ ...prev, passwordConfirm: e.target.value }))}
+                  placeholder="確認のため再入力してください"
+                  minLength={12}
+                  required
+                />
+              </div>
+            </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={inviteLoading}>
+                    <FontAwesomeIcon icon={faUserPlus} />
+                    {inviteLoading ? '作成中...' : 'アカウントを作成'}
+                  </button>
                 </div>
-              )}
-            </div>
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={inviteLoading}>
-                <FontAwesomeIcon icon={inviteForm.send_invite ? faPaperPlane : faUserPlus} />
-                {inviteLoading ? '送信中...' : inviteForm.send_invite ? '招待メールを送信' : 'アカウントを作成'}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section className="admin-section">
-          <h2 className="section-title">
-            <FontAwesomeIcon icon={faUserShield} />
-            ユーザーサマリー
-          </h2>
-          <div className="summary-grid">
-            {roleOrder.map((role) => (
-              <div key={role} className="summary-card">
-                <div className="summary-header">
-                  <FontAwesomeIcon icon={faUserShield} />
-                  <span>{roleLabels[role]}</span>
-                </div>
-                <div className="summary-value">{roleSummary[role] ?? 0}</div>
-              </div>
-            ))}
-            <div className="summary-card">
-              <div className="summary-header">
-                <FontAwesomeIcon icon={faUsersGear} />
-                <span>総ユーザー</span>
-              </div>
-              <div className="summary-value">{total}</div>
-            </div>
+              </form>
+            </section>
           </div>
-        </section>
+        )}
 
-        <section className="admin-section">
+        {/* ユーザー一覧タブ */}
+        {activeTab === 'users' && (
+          <div className="tab-content">
+            <section className="admin-section">
           <div className="section-header">
             <h2 className="section-title">
               <FontAwesomeIcon icon={faUsersGear} />
@@ -545,80 +877,108 @@ export default function AdminPage() {
           </div>
 
           {editingUser && (
-            <div className="edit-panel">
-              <div className="edit-header">
-                <h3>
-                  <FontAwesomeIcon icon={faEdit} />
-                  ユーザー編集
-                </h3>
-                <button className="icon-button" onClick={() => setEditingUser(null)}>
-                  <FontAwesomeIcon icon={faTimes} />
-                </button>
+            <div className="modal-overlay" onClick={() => setEditingUser(null)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>
+                    <FontAwesomeIcon icon={faEdit} />
+                    ユーザー編集 - {editingUser.display_name || editingUser.email}
+                  </h3>
+                  <button
+                    className="modal-close"
+                    onClick={() => setEditingUser(null)}
+                    title="閉じる"
+                    type="button"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <form className="modal-form" onSubmit={handleEditSubmit}>
+                    <div className="form-grid">
+                      <div className="form-field">
+                        <label>
+                          <FontAwesomeIcon icon={faUserShield} />
+                          表示名
+                        </label>
+                        <input
+                          type="text"
+                          value={editForm.display_name}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, display_name: e.target.value }))}
+                          placeholder="例: 山田 太郎"
+                          required
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label>
+                          <FontAwesomeIcon icon={faUserShield} />
+                          権限ロール
+                        </label>
+                        <select
+                          value={editForm.role}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
+                        >
+                          {roleOrder.map((role) => (
+                            <option key={role} value={role}>
+                              {roleLabels[role]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <label>
+                          <FontAwesomeIcon icon={faUsersGear} />
+                          所属チーム
+                        </label>
+                        <select
+                          value={editForm.team_id}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, team_id: e.target.value }))}
+                        >
+                          <option value="">未設定</option>
+                          {teams.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <label>
+                          <FontAwesomeIcon icon={faMapMarkerAlt} />
+                          所属地
+                        </label>
+                        <select
+                          value={editForm.location_id}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, location_id: e.target.value }))}
+                        >
+                          <option value="">未設定</option>
+                          {locationOptions.map((location) => (
+                            <option key={location.id} value={location.id}>
+                              {location.name}
+                              {!location.is_active ? '（停止中）' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setEditingUser(null)}
+                        disabled={savingEdit}
+                      >
+                        <FontAwesomeIcon icon={faTimes} />
+                        キャンセル
+                      </button>
+                      <button type="submit" className="btn btn-primary" disabled={savingEdit}>
+                        <FontAwesomeIcon icon={faCheck} />
+                        {savingEdit ? '保存中...' : '変更を保存'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
-              <form className="edit-form" onSubmit={handleEditSubmit}>
-                <div className="form-grid">
-                  <div className="form-field">
-                    <label>表示名</label>
-                    <input
-                      type="text"
-                      value={editForm.display_name}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, display_name: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label>ロール</label>
-                    <select
-                      value={editForm.role}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
-                    >
-                      {roleOrder.map((role) => (
-                        <option key={role} value={role}>
-                          {roleLabels[role]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-field">
-                    <label>所属チーム</label>
-                    <select
-                      value={editForm.team_id}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, team_id: e.target.value }))}
-                    >
-                      <option value="">未設定</option>
-                      {teams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-field">
-                    <label>所属地</label>
-                    <select
-                      value={editForm.location_id}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, location_id: e.target.value }))}
-                    >
-                      <option value="">未設定</option>
-                      {locationOptions.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {location.name}
-                          {!location.is_active ? '（停止中）' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-primary" disabled={savingEdit}>
-                    <FontAwesomeIcon icon={faCheck} />
-                    {savingEdit ? '保存中...' : '変更を保存'}
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setEditingUser(null)}>
-                    キャンセル
-                  </button>
-                </div>
-              </form>
             </div>
           )}
 
@@ -706,26 +1066,470 @@ export default function AdminPage() {
             </table>
           </div>
 
-          <div className="pagination">
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              disabled={page === 1}
-            >
-              前へ
-            </button>
-            <span>
-              {page} / {totalPages}
-            </span>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={page >= totalPages}
-            >
-              次へ
-            </button>
+              <div className="pagination">
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                >
+                  前へ
+                </button>
+                <span>
+                  {page} / {totalPages}
+                </span>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={page >= totalPages}
+                >
+                  次へ
+                </button>
+              </div>
+            </section>
           </div>
-        </section>
+        )}
+
+        {/* 設定タブ */}
+        {activeTab === 'settings' && (
+          <div className="tab-content">
+            {/* サブタブナビゲーション */}
+            <nav className="sub-tabs">
+              <button
+                className={`sub-tab ${settingsSubTab === 'locations' ? 'active' : ''}`}
+                onClick={() => setSettingsSubTab('locations')}
+              >
+                <FontAwesomeIcon icon={faMapMarkerAlt} />
+                <span>所属地管理</span>
+              </button>
+              <button
+                className={`sub-tab ${settingsSubTab === 'teams' ? 'active' : ''}`}
+                onClick={() => setSettingsSubTab('teams')}
+              >
+                <FontAwesomeIcon icon={faUsersGear} />
+                <span>所属チーム管理</span>
+              </button>
+            </nav>
+
+            {teamError && (
+              <div className="admin-alert admin-alert-error">
+                <FontAwesomeIcon icon={faTimes} />
+                <span>{teamError}</span>
+              </div>
+            )}
+            {teamInfo && (
+              <div className="admin-alert admin-alert-success">
+                <FontAwesomeIcon icon={faCheck} />
+                <span>{teamInfo}</span>
+              </div>
+            )}
+            {locationInfo && (
+              <div className="admin-alert admin-alert-success">
+                <FontAwesomeIcon icon={faCheck} />
+                <span>{locationInfo}</span>
+              </div>
+            )}
+
+            {/* 所属地スロット管理サブタブ */}
+            {settingsSubTab === 'locations' && (
+              <>
+                <section className="admin-section">
+              <h2 className="section-title">
+                <FontAwesomeIcon icon={faPlus} />
+                所属地を追加
+              </h2>
+              <form className="invite-form" onSubmit={handleLocationSubmit}>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>
+                      <FontAwesomeIcon icon={faMapMarkerAlt} />
+                      名称
+                    </label>
+                    <input
+                      type="text"
+                      value={locationForm.name}
+                      onChange={(e) => setLocationForm((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="例: 東京本社"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>説明</label>
+                    <input
+                      type="text"
+                      value={locationForm.description}
+                      onChange={(e) => setLocationForm((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="例: 東京本社ビル 17F"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>
+                      <FontAwesomeIcon icon={faListOl} />
+                      表示順
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10000}
+                      value={locationForm.sort_order}
+                      onChange={(e) => setLocationForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>ステータス</label>
+                    <div className="toggle-switch-wrapper">
+                      <label className="toggle-switch">
+                        <input
+                          type="checkbox"
+                          checked={locationForm.is_active}
+                          onChange={(e) => setLocationForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                      <span className={`toggle-status ${locationForm.is_active ? 'active' : 'inactive'}`}>
+                        {locationForm.is_active ? '有効' : '無効'}
+                      </span>
+                    </div>
+                    <p className="field-help">無効にすると選択肢から除外されます</p>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={locationSaving}>
+                    <FontAwesomeIcon icon={faPlus} />
+                    {locationSaving ? '作成中...' : '追加する'}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            {/* Location edit modal */}
+            {editingLocation && (
+              <div className="modal-overlay" onClick={() => setEditingLocation(null)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>
+                      <FontAwesomeIcon icon={faEdit} />
+                      所属地編集 - {editingLocation.name}
+                    </h3>
+                    <button
+                      className="modal-close"
+                      onClick={() => setEditingLocation(null)}
+                      title="閉じる"
+                      type="button"
+                    >
+                      <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                  </div>
+                  <div className="modal-body">
+                    <form className="modal-form" onSubmit={handleEditLocationSubmit}>
+                      <div className="form-grid">
+                        <div className="form-field">
+                          <label>
+                            <FontAwesomeIcon icon={faMapMarkerAlt} />
+                            名称
+                          </label>
+                          <input
+                            type="text"
+                            value={editLocationForm.name}
+                            onChange={(e) => setEditLocationForm((prev) => ({ ...prev, name: e.target.value }))}
+                            placeholder="例: 東京本社"
+                            required
+                          />
+                        </div>
+
+                        <div className="form-field">
+                          <label>説明</label>
+                          <input
+                            type="text"
+                            value={editLocationForm.description}
+                            onChange={(e) => setEditLocationForm((prev) => ({ ...prev, description: e.target.value }))}
+                            placeholder="例: 東京本社ビル 17F"
+                          />
+                        </div>
+
+                        <div className="form-field">
+                          <label>
+                            <FontAwesomeIcon icon={faListOl} />
+                            表示順
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={10000}
+                            value={editLocationForm.sort_order}
+                            onChange={(e) => setEditLocationForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="form-field">
+                          <label>ステータス</label>
+                          <div className="toggle-switch-wrapper">
+                            <label className="toggle-switch">
+                              <input
+                                type="checkbox"
+                                checked={editLocationForm.is_active}
+                                onChange={(e) =>
+                                  setEditLocationForm((prev) => ({ ...prev, is_active: e.target.checked }))
+                                }
+                              />
+                              <span className="toggle-slider"></span>
+                            </label>
+                            <span className={`toggle-status ${editLocationForm.is_active ? 'active' : 'inactive'}`}>
+                              {editLocationForm.is_active ? '有効' : '無効'}
+                            </span>
+                          </div>
+                          <p className="field-help">無効にすると選択肢から除外されます</p>
+                        </div>
+                      </div>
+                      <div className="form-actions">
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setEditingLocation(null)}
+                          disabled={locationSaving}
+                        >
+                          <FontAwesomeIcon icon={faTimes} />
+                          キャンセル
+                        </button>
+                        <button type="submit" className="btn btn-primary" disabled={locationSaving}>
+                          <FontAwesomeIcon icon={faCheck} />
+                          {locationSaving ? '保存中...' : '変更を保存'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 所属地一覧 */}
+            <section className="admin-section">
+              <div className="section-header">
+                <h2 className="section-title">
+                  <FontAwesomeIcon icon={faMapMarkerAlt} />
+                  所属地一覧
+                </h2>
+                <div className="slot-summary">
+                  <span>有効拠点: {activeLocations.length}</span>
+                  <span>全拠点: {locations.length}</span>
+                </div>
+              </div>
+
+              <div className="admin-table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>名称</th>
+                      <th>説明</th>
+                      <th>表示順</th>
+                      <th>状態</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={5} className="table-loading">
+                          読み込み中...
+                        </td>
+                      </tr>
+                    ) : locations.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="table-empty">
+                          所属地がまだ登録されていません
+                        </td>
+                      </tr>
+                    ) : (
+                      locations.map((location) => (
+                        <tr key={location.id} className={!location.is_active ? 'slot-inactive' : undefined}>
+                          <td>{location.name}</td>
+                          <td>{location.description || '—'}</td>
+                          <td>{location.sort_order}</td>
+                          <td>
+                            <span className={`status-badge ${location.is_active ? 'badge-active' : 'badge-disabled'}`}>
+                              {location.is_active ? '有効' : '無効'}
+                            </span>
+                          </td>
+                          <td className="table-actions">
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleLocationEdit(location)}
+                              disabled={locationSaving}
+                            >
+                              <FontAwesomeIcon icon={faEdit} />
+                              編集
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleLocationToggle(location)}
+                              disabled={locationSaving}
+                            >
+                              <FontAwesomeIcon icon={location.is_active ? faToggleOff : faToggleOn} />
+                              {location.is_active ? '無効化' : '有効化'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+              </>
+            )}
+
+            {/* 所属チーム管理サブタブ */}
+            {settingsSubTab === 'teams' && (
+              <>
+                <section className="admin-section">
+              <h2 className="section-title">
+                <FontAwesomeIcon icon={faPlus} />
+                所属チームを追加
+              </h2>
+              <form className="invite-form" onSubmit={handleTeamSubmit}>
+                <div className="form-grid team-grid">
+                  <div className="form-field">
+                    <label>
+                      <FontAwesomeIcon icon={faUsersGear} />
+                      チーム名
+                    </label>
+                    <input
+                      type="text"
+                      value={teamForm.name}
+                      onChange={(e) => setTeamForm({ name: e.target.value })}
+                      placeholder="例: 北海道支部"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={teamSaving}>
+                    <FontAwesomeIcon icon={faPlus} />
+                    {teamSaving ? '作成中...' : '追加する'}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            {/* Team edit modal */}
+            {editingTeam && (
+              <div className="modal-overlay" onClick={() => setEditingTeam(null)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>
+                      <FontAwesomeIcon icon={faEdit} />
+                      所属チーム編集 - {editingTeam.name}
+                    </h3>
+                    <button
+                      className="modal-close"
+                      onClick={() => setEditingTeam(null)}
+                      title="閉じる"
+                      type="button"
+                    >
+                      <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                  </div>
+                  <div className="modal-body">
+                    <form className="modal-form" onSubmit={handleEditTeamSubmit}>
+                      <div className="form-grid team-grid">
+                        <div className="form-field">
+                          <label>
+                            <FontAwesomeIcon icon={faUsersGear} />
+                            チーム名
+                          </label>
+                          <input
+                            type="text"
+                            value={editTeamForm.name}
+                            onChange={(e) => setEditTeamForm({ name: e.target.value })}
+                            placeholder="例: 北海道支部"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="form-actions">
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setEditingTeam(null)}
+                          disabled={teamSaving}
+                        >
+                          <FontAwesomeIcon icon={faTimes} />
+                          キャンセル
+                        </button>
+                        <button type="submit" className="btn btn-primary" disabled={teamSaving}>
+                          <FontAwesomeIcon icon={faCheck} />
+                          {teamSaving ? '保存中...' : '変更を保存'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 所属チーム一覧 */}
+            <section className="admin-section">
+              <div className="section-header">
+                <h2 className="section-title">
+                  <FontAwesomeIcon icon={faUsersGear} />
+                  所属チーム一覧
+                </h2>
+                <div className="slot-summary">
+                  <span>登録済み: {teams.length}</span>
+                </div>
+              </div>
+
+              <div className="admin-table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>名称</th>
+                      <th>作成日</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={3} className="table-loading">
+                          読み込み中...
+                        </td>
+                      </tr>
+                    ) : teams.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="table-empty">
+                          所属チームがまだ登録されていません
+                        </td>
+                      </tr>
+                    ) : (
+                      teams.map((team) => (
+                        <tr key={team.id}>
+                          <td>{team.name}</td>
+                          <td>{team.created_at ? new Date(team.created_at).toLocaleString('ja-JP') : '—'}</td>
+                          <td className="table-actions">
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleTeamEdit(team)}
+                              disabled={teamSaving}
+                            >
+                              <FontAwesomeIcon icon={faEdit} />
+                              編集
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </AppLayout>
   )

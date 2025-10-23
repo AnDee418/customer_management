@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { 
-  faChartLine, 
-  faUsers, 
+import {
+  faChartLine,
+  faUsers,
   faChartPie,
-  faFileAlt, 
-  faCog,
+  faFileAlt,
   faBuilding,
   faChevronLeft,
   faChevronRight,
@@ -33,16 +32,39 @@ interface MenuItem {
   icon: any
   href: string
   badge?: number
+  section: 'general' | 'admin'
+  requiredRole?: 'admin' | 'manager' | 'user' | 'viewer'
 }
 
 const menuItems: MenuItem[] = [
-  { id: 'dashboard', label: 'ダッシュボード', icon: faChartLine, href: '/dashboard' },
-  { id: 'customers', label: '顧客管理', icon: faUsers, href: '/customers' },
-  { id: 'analytics', label: '顧客分析', icon: faChartPie, href: '/analytics' },
-  { id: 'audit', label: 'ログ監査', icon: faFileAlt, href: '/audit' },
-  { id: 'account', label: 'マイページ', icon: faIdCard, href: '/account' },
-  { id: 'settings', label: '設定', icon: faCog, href: '/settings' },
+  { id: 'dashboard', label: 'ダッシュボード', icon: faChartLine, href: '/dashboard', section: 'general' },
+  { id: 'customers', label: '顧客管理', icon: faUsers, href: '/customers', section: 'general' },
+  { id: 'analytics', label: '顧客分析', icon: faChartPie, href: '/analytics', section: 'general' },
+  { id: 'account', label: 'マイページ', icon: faIdCard, href: '/account', section: 'general' },
 ]
+
+const adminMenuItems: MenuItem[] = [
+  { id: 'admin', label: '管理者コンソール', icon: faUsersGear, href: '/admin', section: 'admin', requiredRole: 'admin' },
+  { id: 'audit', label: 'ログ監査', icon: faFileAlt, href: '/audit', section: 'admin', requiredRole: 'manager' },
+]
+
+// ロール階層: admin > manager > user > viewer
+const roleHierarchy = {
+  admin: 4,
+  manager: 3,
+  user: 2,
+  viewer: 1,
+}
+
+function hasPermission(userRole: string | null, requiredRole?: string): boolean {
+  if (!requiredRole) return true
+  if (!userRole) return false
+
+  const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0
+  const requiredLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0
+
+  return userLevel >= requiredLevel
+}
 
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const router = useRouter()
@@ -82,13 +104,13 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     return () => controller.abort()
   }, [user])
 
-  const menuList = useMemo(() => {
-    const items = [...menuItems]
-    if (profileRole === 'admin') {
-      items.splice(3, 0, { id: 'admin', label: '管理者', icon: faUsersGear, href: '/admin' })
-      return items
-    }
-    return items.filter((item) => item.id !== 'admin' && item.id !== 'settings')
+  const generalMenu = useMemo(() => menuItems, [])
+
+  const adminMenu = useMemo(() => {
+    if (!profileRole) return []
+
+    // ユーザーのロールに基づいてメニューをフィルタリング
+    return adminMenuItems.filter((item) => hasPermission(profileRole, item.requiredRole))
   }, [profileRole])
 
   return (
@@ -114,7 +136,9 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* ナビゲーションメニュー */}
       <nav className="sidebar-nav">
-        {menuList.map((item) => {
+        {/* 一般機能セクション */}
+        {!isCollapsed && <div className="nav-section-header">一般機能</div>}
+        {generalMenu.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link
@@ -135,6 +159,37 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             </Link>
           )
         })}
+
+        {/* 管理機能セクション */}
+        {adminMenu.length > 0 && (
+          <>
+            <div className="nav-divider"></div>
+            {!isCollapsed && <div className="nav-section-header admin">管理機能</div>}
+            <div className="nav-admin-section">
+              {adminMenu.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={`nav-item admin ${isActive ? 'active' : ''}`}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <FontAwesomeIcon icon={item.icon} className="nav-icon" />
+                    {!isCollapsed && (
+                      <>
+                        <span className="nav-label">{item.label}</span>
+                        {item.badge && item.badge > 0 && (
+                          <span className="nav-badge">{item.badge}</span>
+                        )}
+                      </>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
       </nav>
 
       {/* フッター（ユーザー情報など） */}

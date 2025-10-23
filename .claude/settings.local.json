@@ -8,7 +8,9 @@
       "Bash(test:*)",
       "Bash(mkdir:*)",
       "mcp__chrome-devtools__take_snapshot",
-      "mcp__chrome-devtools__evaluate_script"
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__execute_sql"
     ],
     "deny": [],
     "ask": [],

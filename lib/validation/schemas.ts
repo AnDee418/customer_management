@@ -125,9 +125,7 @@ export const createAdminUserSchema = z.object({
   role: userRoleSchema.default('user'),
   team_id: optionalUuidSchema.optional(),
   location_id: optionalUuidSchema.optional(),
-  send_invite: z.boolean().default(true),
-  redirect_to: z.string().url().optional(),
-  temporary_password: z.string().min(12, '仮パスワードは12文字以上で入力してください').optional(),
+  password: z.string().min(12, 'パスワードは12文字以上で入力してください'),
 })
 
 /**

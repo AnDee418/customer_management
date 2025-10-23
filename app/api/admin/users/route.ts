@@ -9,7 +9,6 @@ import { requireAdmin } from '@/lib/auth/session'
 import { errorResponse } from '@/lib/errors/handler'
 import { structuredLog, logAudit } from '@/lib/audit/logger'
 import { createAdminUserSchema, validate } from '@/lib/validation/schemas'
-import crypto from 'node:crypto'
 import type { User } from '@supabase/supabase-js'
 import { buildAdminUser, type ProfileRow, type TeamRow, type AdminUserDTO, type LocationSlotRow } from './shared'
 
@@ -32,7 +31,7 @@ export async function GET(request: NextRequest) {
     const [profilesResult, teamsResult, locationsResult] = await Promise.all([
       authedClient
         .from('profiles')
-        .select('user_id, role, display_name, department, team_id, location_id, created_at, updated_at'),
+        .select('user_id, role, display_name, department, team_id, location_id, created_at'),
       authedClient
         .from('teams')
         .select('id, name')
@@ -148,73 +147,38 @@ export async function POST(request: NextRequest) {
     const payload = validation.data
     const service = createServiceClient()
 
-    const { data: existingUser, error: existingError } = await service
-      .from('auth.users')
-      .select('id')
-      .eq('email', payload.email)
-      .maybeSingle()
+    // Try to create the user (Supabase will handle duplicate email check)
+    const createResult = await service.auth.admin.createUser({
+      email: payload.email,
+      password: payload.password,
+      email_confirm: true,
+      user_metadata: {
+        display_name: payload.display_name,
+        department: payload.department ?? undefined,
+        team_id: payload.team_id ?? undefined,
+        location_id: payload.location_id ?? undefined,
+      },
+      app_metadata: {
+        role: payload.role,
+      },
+    })
 
-    if (existingError) {
-      structuredLog('error', 'Admin user pre-check failed', { error: existingError.message })
-      return errorResponse('Failed to verify existing user', 500)
-    }
-
-    if (existingUser) {
-      return errorResponse('同じメールアドレスのユーザーが既に存在します', 409)
-    }
-
-    let userResponse: Awaited<ReturnType<typeof service.auth.admin.createUser>>
-    let generatedPassword: string | undefined
-
-    if (payload.send_invite) {
-      const inviteResult = await service.auth.admin.inviteUserByEmail(payload.email, {
-        data: {
-          display_name: payload.display_name,
-          department: payload.department ?? undefined,
-          team_id: payload.team_id ?? undefined,
-          location_id: payload.location_id ?? undefined,
-        },
-        redirectTo: payload.redirect_to,
-      })
-
-      if (inviteResult.error || !inviteResult.data.user) {
-        structuredLog('error', 'Admin user invitation failed', {
-          error: inviteResult.error?.message,
-          email: payload.email,
-        })
-        return errorResponse(inviteResult.error?.message || 'ユーザー招待に失敗しました', 400)
-      }
-
-      userResponse = inviteResult
-    } else {
-      const password = payload.temporary_password || generateSecurePassword()
-      generatedPassword = payload.temporary_password ? undefined : password
-
-      const createResult = await service.auth.admin.createUser({
+    if (createResult.error || !createResult.data.user) {
+      structuredLog('error', 'Admin user creation failed', {
+        error: createResult.error?.message,
         email: payload.email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          display_name: payload.display_name,
-          department: payload.department ?? undefined,
-          team_id: payload.team_id ?? undefined,
-          location_id: payload.location_id ?? undefined,
-        },
-        app_metadata: {
-          role: payload.role,
-        },
       })
 
-      if (createResult.error || !createResult.data.user) {
-        structuredLog('error', 'Admin user creation failed', {
-          error: createResult.error?.message,
-          email: payload.email,
-        })
-        return errorResponse(createResult.error?.message || 'ユーザー作成に失敗しました', 400)
+      // Handle duplicate email error
+      const errorMsg = createResult.error?.message || ''
+      if (errorMsg.toLowerCase().includes('already') || errorMsg.toLowerCase().includes('duplicate')) {
+        return errorResponse('同じメールアドレスのユーザーが既に存在します', 409)
       }
 
-      userResponse = createResult
+      return errorResponse(createResult.error?.message || 'ユーザー作成に失敗しました', 400)
     }
+
+    const userResponse = createResult
 
     const createdUser = userResponse.data.user!
 
@@ -287,10 +251,10 @@ export async function POST(request: NextRequest) {
     ])
 
     const teamMap = new Map<string, TeamRow>()
-    teamsResult.data?.forEach((team) => teamMap.set(team.id, team))
+    teamsResult.data?.forEach((team: TeamRow) => teamMap.set(team.id, team))
 
     const locationMap = new Map<string, LocationSlotRow>()
-    locationsResult.data?.forEach((location) => locationMap.set(location.id, location))
+    locationsResult.data?.forEach((location: LocationSlotRow) => locationMap.set(location.id, location))
 
     const mergedUser = buildAdminUser(finalUserResult.data.user, profileData, teamMap, locationMap)
 
@@ -303,7 +267,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         data: mergedUser,
-        generated_password: generatedPassword ?? null,
       },
       { status: 201, headers: { 'Cache-Control': 'no-store' } }
     )
@@ -335,16 +298,4 @@ async function fetchAllUsers(service: ReturnType<typeof createServiceClient>) {
   }
 
   return users.slice(0, MAX_USER_FETCH)
-}
-
-function generateSecurePassword(length = 16) {
-  const bytes = crypto.randomBytes(length)
-  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*'
-  let password = ''
-
-  for (let i = 0; i < length; i += 1) {
-    password += charset[bytes[i] % charset.length]
-  }
-
-  return password
 }

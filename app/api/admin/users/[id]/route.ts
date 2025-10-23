@@ -43,7 +43,7 @@ export async function PATCH(
       service.auth.admin.getUserById(userId),
       service
         .from('profiles')
-        .select('user_id, role, display_name, department, team_id, location_id, created_at, updated_at')
+        .select('user_id, role, display_name, department, team_id, location_id, created_at')
         .eq('user_id', userId)
         .maybeSingle(),
     ])
@@ -164,9 +164,9 @@ export async function PATCH(
       return errorResponse('所属地情報の取得に失敗しました', 500)
     }
     const teamMap = new Map<string, TeamRow>()
-    teamsResult.data?.forEach((team) => teamMap.set(team.id, team))
+    teamsResult.data?.forEach((team: TeamRow) => teamMap.set(team.id, team))
     const locationMap = new Map<string, LocationSlotRow>()
-    locationsResult.data?.forEach((location) => locationMap.set(location.id, location))
+    locationsResult.data?.forEach((location: LocationSlotRow) => locationMap.set(location.id, location))
 
     const refreshedUser = await service.auth.admin.getUserById(userId)
     if (refreshedUser.error || !refreshedUser.data.user) {
