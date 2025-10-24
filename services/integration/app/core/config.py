@@ -50,3 +50,5 @@ def get_settings() -> Settings:
     return Settings()
 
 
+# グローバル設定インスタンス
+settings = get_settings()
