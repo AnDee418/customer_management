@@ -33,11 +33,16 @@
 - [x] セキュリティアドバイザー確認（重大な問題なし）
 - [x] パフォーマンスアドバイザー確認（問題なし）
 
-### 1.3 デプロイ環境準備
-- [ ] Vercel プロジェクト作成（フロント/BFF）
-- [ ] Render サービス作成（FastAPI連携）
-- [ ] 環境変数設定（Secrets管理）
-- [ ] OAuth2認証基盤の選定・設定（Auth0/Keycloak/自前）
+### 1.3 デプロイ環境準備 ✓
+- [x] Vercel プロジェクト作成（フロント/BFF）
+- [x] Renderデプロイガイド作成（docs/RENDER_DEPLOYMENT.md）
+- [x] 環境変数テンプレート作成（services/integration/.env.template）
+- [x] Render サービス作成（FastAPI連携）- customer-mgmt-integration
+- [x] 環境変数設定（Secrets管理）- Supabase認証情報含む
+- [x] Python 3.11.0設定（.python-version）
+- [x] 依存関係修正（pydantic 2.9.0, httpx 0.24.1）
+- [x] インポート修正（settings, logger）
+- [ ] OAuth2認証基盤の選定・設定（Auth0/Keycloak/自前）- オプション（今後実装予定）
 
 ---
 
@@ -196,15 +201,15 @@
 - [x] 年齢分布
 - [x] 月別・地域別フィルター
 
-### 3.7 ログ監査画面（管理者専用）
-- [ ] audit_logs一覧・検索
-- [ ] フィルタ（entity/action/期間）
-- [ ] 詳細表示（diff表示）
+### 3.7 ログ監査画面（管理者専用） ✓
+- [x] audit_logs一覧・検索
+- [x] フィルタ（entity/action/期間）
+- [x] 詳細表示（diff表示）
 
-### 3.8 リアルタイム更新
-- [ ] Supabase Realtime購読設定
-- [ ] WebSocket接続管理
-- [ ] UI即時反映（顧客詳細・一覧）
+### 3.8 リアルタイム更新 ✓
+- [x] Supabase Realtime購読設定
+- [x] WebSocket接続管理
+- [x] UI即時反映（顧客詳細・一覧）
 
 ---
 
@@ -272,10 +277,10 @@
 - [ ] 復元手順書作成
 - [ ] 復旧訓練実施（年2回）
 
-### 6.3 セキュリティ
-- [ ] RLSポリシー動作検証
-- [ ] OAuth2 CC認証動作検証
-- [ ] Webhook署名検証動作検証
+### 6.3 セキュリティ ✓（一部完了）
+- [x] RLSポリシー動作検証（docs/SECURITY_TEST_RESULTS.md）
+- [ ] OAuth2 CC認証動作検証（外部システム連携後）
+- [ ] Webhook署名検証動作検証（外部システム連携後）
 - [ ] IP Allowlist設定
 - [ ] Secrets ローテーション手順
 
@@ -308,7 +313,7 @@
 - **フェーズ0**: ✅ 完了（要件定義v0.4）
 - **フェーズ1**: ✅ 完了（Supabase環境構築・マイグレーション完了）
 - **フェーズ2**: ✅ 完了（バックエンドAPI完全実装 + セキュリティ強化v0.10）
-- **フェーズ3**: 🔄 進行中（デザインシステム・ダッシュボード・認証・アカウント管理完了、顧客管理画面実装中）
+- **フェーズ3**: ✅ 完了（デザインシステム・ダッシュボード・認証・アカウント管理・顧客管理・分析・監査・リアルタイム更新）
 - **フェーズ4**: ✅ 完了（共通ライブラリ・認証・監査・エラーハンドリング）
 - **フェーズ5**: ⏳ 未着手
 - **フェーズ6**: ⏳ 未着手
@@ -405,12 +410,61 @@
 - integration_jobs 記録・再試行管理（手動再試行はUI経由で代替可）
 - パフォーマンス検証（M2M SLO P95 < 200ms、鮮度SLO P99 ≤ 3秒）
 
-最終更新: 2025-10-21  
-バージョン: v0.12（フェーズ3進行中：認証・アカウント管理完了、顧客管理画面へ）
+最終更新: 2025-10-24
+バージョン: v0.13（フェーズ3完了：リアルタイム更新実装完了）
 
 ---
 
-## セキュリティ強化履歴（v0.9-v0.10）
+## セキュリティ強化履歴（v0.9-v0.15）
+
+### v0.15 (2025-10-24) - user権限の読取全件許可 + 削除制限
+- **user権限の仕様変更**
+  - user権限: すべての顧客データを閲覧可能に変更
+  - user権限: 編集は自分が作成したデータのみ（従来通り）
+  - user権限: 削除不可に変更（データ保護）
+  - RLSポリシー更新（migration 017_user_read_all_no_delete.sql）
+  - contacts テーブルも同様に更新（個別ポリシーに分離）
+- **削除権限の明確化**
+  - 削除可能: admin、manager のみ
+  - 削除不可: user、agency（所有者でも削除不可）
+  - データ整合性保護の強化
+
+### v0.14 (2025-10-24) - セキュリティ検証 + manager権限修正完了
+- **Render本番デプロイ完了**
+  - Render Webサービス作成（customer-mgmt-integration）
+  - Python 3.11.0設定（.python-version）
+  - 依存関係競合解決（pydantic 2.9.0、httpx 0.24.1、FastAPI 0.115.0、uvicorn 0.32.0）
+  - インポートエラー修正（settings, logger モジュールレベルインスタンス追加）
+  - Supabase環境変数設定（SUPABASE_URL、SUPABASE_SERVICE_ROLE_KEY）
+  - ヘルスチェック正常動作確認（/health → {"status":"healthy","service":"integration"}）
+- **セキュリティ検証実施**
+  - 包括的セキュリティテスト実施（docs/SECURITY_TEST_RESULTS.md）
+  - RLSポリシー動作検証（所有者ベース、admin/manager例外ルール）
+  - RBAC実装確認（admin/manager/user/agency権限）
+  - 監査ログ機能検証（44件記録、アクセス制限確認）
+  - セキュリティスコア: 85/100点（本番運用可能レベル）
+- **manager権限修正（仕様変更）**
+  - manager権限は監査ログページで利用するための管理ロール
+  - RLSポリシー更新（migration 016_manager_full_access.sql）
+  - managerはすべての顧客にアクセス可能（adminと同等）
+  - 監査ログはlocation_idベースで制限（現行維持）
+
+### v0.13 (2025-10-24) - リアルタイム更新実装完了 + デプロイ準備
+- **リアルタイム更新機能**
+  - Supabase Realtimeを使用したリアルタイム更新機能実装
+  - カスタムフック作成（useRealtimeSubscription、useCustomersRealtime、useCustomerRealtime）
+  - WebSocket接続の自動管理とエラーハンドリング
+  - 顧客一覧ページでのリアルタイム更新（INSERT/UPDATE/DELETE）
+  - 顧客詳細ページでのリアルタイム更新
+  - リアルタイム接続状態インジケーター表示
+  - customersテーブルをsupabase_realtimeパブリケーションに追加
+  - テストガイドドキュメント作成（docs/REALTIME_TESTING.md）
+  - 再接続問題の修正（コールバック関数をrefで管理）
+- **デプロイ準備**
+  - Vercel接続完了
+  - Renderデプロイガイド作成（docs/RENDER_DEPLOYMENT.md）
+  - FastAPI環境変数テンプレート作成（services/integration/.env.template）
+- **フェーズ3完了**: すべてのフロントエンド機能実装完了
 
 ### v0.10 (2025-10-20) - 第2フェーズ
 - M2M PIIフィールド最小化（デフォルトでPII除外、fieldsパラメータallowlist制御）

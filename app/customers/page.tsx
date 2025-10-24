@@ -16,6 +16,7 @@ import {
   faGenderless,
   faQuestion
 } from '@fortawesome/free-solid-svg-icons'
+import { useCustomersRealtime } from '@/lib/hooks/useRealtimeSubscription'
 import './customers.css'
 
 // 顧客タイプの定義
@@ -46,6 +47,25 @@ export default function CustomersPage() {
   const [minAge, setMinAge] = useState('')
   const [maxAge, setMaxAge] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+
+  // リアルタイム更新の購読
+  const { isSubscribed } = useCustomersRealtime({
+    onInsert: (newCustomer) => {
+      setCustomers((prev) => [newCustomer, ...prev])
+    },
+    onUpdate: (updatedCustomer) => {
+      setCustomers((prev) =>
+        prev.map((customer) =>
+          customer.id === updatedCustomer.id ? updatedCustomer : customer
+        )
+      )
+    },
+    onDelete: (deletedCustomerId) => {
+      setCustomers((prev) =>
+        prev.filter((customer) => customer.id !== deletedCustomerId)
+      )
+    },
+  })
 
   // 顧客データ取得
   useEffect(() => {
@@ -198,6 +218,30 @@ export default function CustomersPage() {
             <h1 className="page-title">顧客管理</h1>
             <p className="page-subtitle">
               {filteredCustomers.length} 件の顧客
+              {isSubscribed && (
+                <span
+                  style={{
+                    marginLeft: '0.5rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--success)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                  }}
+                  title="リアルタイム更新が有効です"
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--success)',
+                      display: 'inline-block',
+                    }}
+                  />
+                  リアルタイム
+                </span>
+              )}
             </p>
           </div>
           <div className="header-right">

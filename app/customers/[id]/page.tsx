@@ -14,6 +14,7 @@ import {
   faExternalLinkAlt
 } from '@fortawesome/free-solid-svg-icons'
 import { getOrderDetailUrl, getMeasurementDetailUrl, openExternalSystem } from '@/lib/utils/externalLinks'
+import { useCustomerRealtime } from '@/lib/hooks/useRealtimeSubscription'
 import '../customers.css'
 import './detail.css'
 
@@ -75,6 +76,17 @@ export default function CustomerDetailPage() {
   const [measurements, setMeasurements] = useState<Measurement[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>('info')
+
+  // リアルタイム更新の購読
+  const { isSubscribed } = useCustomerRealtime(customerId, {
+    onUpdate: (updatedCustomer) => {
+      setCustomer(updatedCustomer)
+    },
+    onDelete: () => {
+      alert('この顧客は削除されました')
+      router.push('/customers')
+    },
+  })
 
   useEffect(() => {
     if (customerId) {
@@ -206,6 +218,29 @@ export default function CustomerDetailPage() {
                 <span className={`badge ${getTypeBadgeClass(customer.type)}`}>
                   {customer.type}
                 </span>
+                {isSubscribed && (
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--success)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                    }}
+                    title="リアルタイム更新が有効です"
+                  >
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--success)',
+                        display: 'inline-block',
+                      }}
+                    />
+                    リアルタイム
+                  </span>
+                )}
               </div>
             </div>
           </div>
