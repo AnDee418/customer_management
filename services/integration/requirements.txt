@@ -13,7 +13,7 @@ postgrest==0.13.2
 # OAuth2 / 認証
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.6
-httpx==0.26.0
+httpx==0.24.1
 
 # 再試行・制御
 tenacity==8.2.3
