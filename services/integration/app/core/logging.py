@@ -10,7 +10,7 @@ from app.core.config import get_settings
 def setup_logging():
     """ログ設定初期化"""
     settings = get_settings()
-    
+
     # structlog設定
     structlog.configure(
         processors=[
@@ -31,3 +31,8 @@ def setup_logging():
     )
 
 
+# ログ設定を初期化
+setup_logging()
+
+# グローバルロガーインスタンス
+logger = structlog.get_logger()
