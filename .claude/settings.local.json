@@ -33,7 +33,11 @@
       "mcp__supabase__list_tables",
       "Bash(Select-String -Path \"C:\\Users\\owner\\EARU-sistem\\customer_management\\docs\\IMPLEMENTATION_CHECKLIST.md\" -Pattern \"セキュリティ検証\" -Context 5,10)",
       "Bash(powershell -Command:*)",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "mcp__vercel__get_deployment_build_logs",
+      "Bash(npm run build:*)",
+      "mcp__render__list_logs",
+      "Bash(New-Item -ItemType Directory -Path \"scripts\\backup\" -Force)"
     ],
     "deny": [],
     "ask": [],
