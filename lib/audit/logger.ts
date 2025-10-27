@@ -40,14 +40,25 @@ const SENSITIVE_FIELDS = [
 // PII検出用の正規表現パターン
 const PII_PATTERNS = [
   { pattern: /\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g, replacement: '***EMAIL***' }, // Email
-  { pattern: /\b\d{2,4}[-.\s]?\d{2,4}[-.\s]?\d{3,4}\b/g, replacement: '***PHONE***' }, // 電話番号
-  { pattern: /\b\d{3}-\d{4}-\d{4}\b/g, replacement: '***CARD***' }, // クレジットカード簡易
+  { pattern: /\b(0\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{3,4})\b/g, replacement: '***PHONE***' }, // 日本の電話番号（0で始まる）
+  { pattern: /\b\d{4}[-.\s]?\d{4}[-.\s]?\d{4}[-.\s]?\d{4}\b/g, replacement: '***CARD***' }, // クレジットカード（16桁）
 ]
+
+// UUIDパターン（マスキング対象外として除外）
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// タイムスタンプパターン（マスキング対象外として除外）
+const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/
 
 /**
  * 文字列中のPIIパターンをマスキング
  */
 function maskPIIPatterns(str: string): string {
+  // UUIDまたはタイムスタンプの場合はマスキングしない
+  if (UUID_PATTERN.test(str) || TIMESTAMP_PATTERN.test(str)) {
+    return str
+  }
+
   let masked = str
   for (const { pattern, replacement } of PII_PATTERNS) {
     masked = masked.replace(pattern, replacement)
