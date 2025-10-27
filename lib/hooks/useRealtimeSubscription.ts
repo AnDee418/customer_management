@@ -83,10 +83,11 @@ export function useRealtimeSubscription<T extends Record<string, any> = any>(
 
     try {
       // チャンネルを作成
-      const channel = supabase
-        .channel(channelName)
+      // Note: 型アサーションを使用してSupabase Realtime型定義の問題を回避
+      const channel = (supabase
+        .channel(channelName) as any)
         .on(
-          'postgres_changes' as const,
+          'postgres_changes',
           {
             event,
             schema,
@@ -117,7 +118,7 @@ export function useRealtimeSubscription<T extends Record<string, any> = any>(
             }
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
           if (process.env.NODE_ENV === 'development') {
             console.log('[Realtime] Subscription status:', status, 'for table:', table)
           }
