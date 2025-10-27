@@ -1,14 +1,19 @@
 /**
  * M2M参照API - 顧客検索
- * OAuth2 CC認証、レート制限、IP Allowlist
+ * OAuth2 CC認証、レート制限、IP Allowlist、ユーザーコンテキスト対応
  * P95 < 200ms目標、キャッシュ不使用
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
-import { verifyOAuth2Token } from '@/lib/auth/oauth2'
+import { createClient } from '@supabase/supabase-js'
+import {
+  verifyOAuth2TokenWithScope,
+  createOAuth2ErrorResponse
+} from '@/lib/auth/oauth2Middleware'
+import { getUserContextFromRequest, applyRLSFilter } from '@/lib/auth/userContext'
 import { getClientIP, isIPAllowed } from '@/lib/middleware/ipAllowlist'
 import { checkRateLimit } from '@/lib/middleware/rateLimit'
 import { structuredLog } from '@/lib/audit/logger'
+import { auditLog } from '@/lib/audit/auditLog'
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,23 +52,27 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 3. OAuth2 CC認証チェック
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      )
+    // 3. OAuth2 CC認証チェック（customers:read スコープ必須）
+    const authResult = await verifyOAuth2TokenWithScope(request, 'customers:read')
+
+    if (!authResult.success || !authResult.payload) {
+      structuredLog('warn', 'M2M authentication failed', {
+        ip: clientIP,
+        error: authResult.error
+      })
+      return createOAuth2ErrorResponse(authResult, 401)
     }
 
-    const token = authHeader.substring(7)
-    const isValid = await verifyOAuth2Token(token)
-    
-    if (!isValid) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      )
+    // 4. ユーザーコンテキスト取得（オプション）
+    const userContext = await getUserContextFromRequest(request, true)
+
+    if (userContext) {
+      structuredLog('info', 'M2M request with user context', {
+        client_id: authResult.payload.client_id,
+        external_user_id: userContext.externalUserId,
+        internal_user_id: userContext.internalUserId,
+        role: userContext.role
+      })
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -97,8 +106,19 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const supabase = createServerClient()
-    
+    // 5. Supabase クライアント初期化（Service Role Key使用）
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    // 6. クエリ実行（RLSフィルタ適用）
     let query = supabase
       .from('customers')
       .select(selectFields)
@@ -109,6 +129,9 @@ export async function GET(request: NextRequest) {
       query = query.textSearch('search_vector', q)
     }
 
+    // ユーザーコンテキストがある場合、RLS相当のフィルタリングを適用
+    query = applyRLSFilter(query, userContext)
+
     const { data, error } = await query
 
     if (error) {
@@ -118,10 +141,28 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // 7. 監査ログ記録（ユーザーコンテキストがある場合）
+    if (userContext && userContext.internalUserId) {
+      await auditLog({
+        userId: userContext.internalUserId,
+        entity: 'customers',
+        action: 'search',
+        entityId: null,
+        metadata: {
+          query: q,
+          result_count: data.length,
+          client_id: authResult.payload.client_id,
+          via: 'm2m_api',
+          external_user_id: userContext.externalUserId
+        }
+      })
+    }
+
     structuredLog('info', 'M2M search completed', {
       ip: clientIP,
       resultCount: data.length,
       query: q,
+      hasUserContext: !!userContext
     })
 
     return NextResponse.json(data, {
