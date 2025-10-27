@@ -21,7 +21,7 @@ import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/
 
 type PostgresChangesEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*'
 
-interface UseRealtimeSubscriptionOptions<T = any> {
+interface UseRealtimeSubscriptionOptions<T extends Record<string, any> = any> {
   table: string
   event?: PostgresChangesEvent
   filter?: string
@@ -37,7 +37,7 @@ interface UseRealtimeSubscriptionReturn {
   error: string | null
 }
 
-export function useRealtimeSubscription<T = any>(
+export function useRealtimeSubscription<T extends Record<string, any> = any>(
   options: UseRealtimeSubscriptionOptions<T>
 ): UseRealtimeSubscriptionReturn {
   const { supabase, isLoading } = useSupabase()
