@@ -265,9 +265,11 @@
 
 ## フェーズ6: 非機能・運用
 
-### 6.1 監視・観測性
-- [ ] 構造化ログ出力確認
-- [ ] メトリクス収集設定（鮮度SLO/レイテンシ）
+### 6.1 監視・観測性 ✓（基礎設定完了）
+- [x] 構造化ログ出力確認（Next.js: lib/audit/logger.ts、FastAPI: app/core/logging.py）
+- [x] ログ収集設定（Vercel MCP、Render MCP、Supabase audit_logs）
+- [x] 基礎メトリクス収集設定（Vercel デプロイメント状態、Render CPU/メモリ/HTTP）
+- [x] 監視設定ドキュメント作成（docs/MONITORING_SETUP.md）
 - [ ] ダッシュボード作成（Grafana/DataDog等）
 - [ ] アラート設定（鮮度SLO逸脱/Webhook遅延/5xx急増）
 
@@ -316,7 +318,7 @@
 - **フェーズ3**: ✅ 完了（デザインシステム・ダッシュボード・認証・アカウント管理・顧客管理・分析・監査・リアルタイム更新）
 - **フェーズ4**: ✅ 完了（共通ライブラリ・認証・監査・エラーハンドリング）
 - **フェーズ5**: ⏳ 未着手
-- **フェーズ6**: ⏳ 未着手
+- **フェーズ6**: 🔄 進行中（6.1監視基礎✅、6.2-6.4未着手）
 - **フェーズ7**: ⏳ 未着手
 
 ---
@@ -415,7 +417,26 @@
 
 ---
 
-## セキュリティ強化履歴（v0.9-v0.16）
+## セキュリティ強化履歴（v0.9-v0.17）
+
+### v0.17 (2025-10-27) - 監視・観測性基礎設定完了 + TypeScript修正
+- **Vercelデプロイメント修正**
+  - TypeScript型エラー修正（Supabase Realtime）
+  - ジェネリック型制約追加（Record<string, any>）
+  - 型アサーション適用（channel型定義問題回避）
+  - subscribe コールバック型注釈追加
+  - ビルド成功・本番デプロイ完了
+- **監視・観測性（Phase 6.1）基礎設定完了**
+  - 構造化ログ実装検証（Next.js: lib/audit/logger.ts、FastAPI: app/core/logging.py）
+  - Vercel MCPによるデプロイメント監視設定
+  - Render MCPによるサービス監視設定
+  - ログ収集確認（Vercel、Render、Supabase audit_logs）
+  - メトリクス収集確認（CPU/メモリ/HTTP/デプロイ状態）
+  - 監視設定ドキュメント作成（docs/MONITORING_SETUP.md）
+- **デプロイ状況**
+  - Vercel: READY状態（https://customer-management-nine-phi.vercel.app）
+  - Render: Live状態（https://customer-mgmt-integration.onrender.com）
+- **Phase 6.1 完了**: 監視・観測性の基礎設定が完了。ダッシュボード作成とアラート設定は今後の課題。
 
 ### v0.16 (2025-10-24) - セキュリティスコア94点達成 🎉
 - **監査ログマスキング改善**
