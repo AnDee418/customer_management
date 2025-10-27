@@ -12,8 +12,7 @@ import {
 import { getUserContextFromRequest, applyRLSFilter } from '@/lib/auth/userContext'
 import { getClientIP, isIPAllowed } from '@/lib/middleware/ipAllowlist'
 import { checkRateLimit } from '@/lib/middleware/rateLimit'
-import { structuredLog } from '@/lib/audit/logger'
-import { auditLog } from '@/lib/audit/auditLog'
+import { structuredLog, logAudit } from '@/lib/audit/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -143,12 +142,12 @@ export async function GET(request: NextRequest) {
 
     // 7. 監査ログ記録（ユーザーコンテキストがある場合）
     if (userContext && userContext.internalUserId) {
-      await auditLog({
-        userId: userContext.internalUserId,
+      await logAudit({
+        actor_user_id: userContext.internalUserId,
         entity: 'customers',
-        action: 'search',
-        entityId: null,
-        metadata: {
+        action: 'sync', // 'search' is not in the allowed actions, using 'sync'
+        entity_id: undefined,
+        diff: {
           query: q,
           result_count: data.length,
           client_id: authResult.payload.client_id,

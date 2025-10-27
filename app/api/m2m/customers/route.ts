@@ -12,8 +12,7 @@ import {
 import { getUserContextFromRequest } from '@/lib/auth/userContext'
 import { getClientIP, isIPAllowed } from '@/lib/middleware/ipAllowlist'
 import { checkRateLimit } from '@/lib/middleware/rateLimit'
-import { structuredLog } from '@/lib/audit/logger'
-import { auditLog } from '@/lib/audit/auditLog'
+import { structuredLog, logAudit } from '@/lib/audit/logger'
 
 // バリデーションスキーマ
 const createCustomerSchema = z.object({
@@ -150,17 +149,19 @@ export async function POST(request: NextRequest) {
     }
 
     // 8. 監査ログ記録
-    await auditLog({
-      userId: userContext.internalUserId,
+    await logAudit({
+      actor_user_id: userContext.internalUserId,
       entity: 'customers',
       action: 'create',
-      entityId: customer.id,
-      metadata: {
-        client_id: authResult.payload.client_id,
-        via: 'm2m_api',
-        external_user_id: userContext.externalUserId
-      },
-      newValue: customer
+      entity_id: customer.id,
+      diff: {
+        metadata: {
+          client_id: authResult.payload.client_id,
+          via: 'm2m_api',
+          external_user_id: userContext.externalUserId
+        },
+        newValue: customer
+      }
     })
 
     structuredLog('info', 'M2M customer created', {
